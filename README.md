@@ -9,31 +9,36 @@ This workspace is cleanly split into frontend and backend applications:
 ```text
 Proofly/
 ├── backend/            # FastAPI (Python 3.11+) backend service
-│   ├── app/            # Application source code
-│   ├── .env.example    # Backend environment template
+│   ├── api/index.py    # Vercel Serverless Function entrypoint
+│   ├── app/            # FastAPI source code (routes, schemas, config)
+│   ├── vercel.json     # Vercel backend rewrite rules
+│   ├── .env.example    # Backend environment configuration template
 │   └── requirements.txt # Python dependencies
-└── frontend/           # Next.js (TypeScript + Tailwind CSS) client app
-    ├── src/            # Next.js App Router source
-    ├── .env.example    # Frontend environment template
+└── frontend/           # Next.js 15 (TypeScript + Tailwind CSS) client app
+    ├── src/            # Next.js App Router source & API client
+    ├── vercel.json     # Vercel frontend project configuration
+    ├── .env.example    # Frontend environment configuration template
     └── package.json    # Node dependencies
 ```
 
-## Quick Start
+---
+
+## Quick Start (Local Development)
 
 ### 1. Run Backend Service
 ```bash
 cd backend
 python -m venv .venv
-# On Windows:
-.venv\Scripts\activate
-# On macOS/Linux:
-# source .venv/bin/activate
+
+# Activate environment:
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # macOS / Linux
 
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
-Backend Health API will be live at: `http://localhost:8000/api/v1/health`
-Interactive API Docs (Swagger): `http://localhost:8000/docs`
+- **Backend Health API**: `http://localhost:8000/api/v1/health`
+- **Swagger Documentation**: `http://localhost:8000/docs`
 
 ### 2. Run Frontend Application
 ```bash
@@ -41,7 +46,48 @@ cd frontend
 npm install
 npm run dev
 ```
-Frontend Web App will be live at: `http://localhost:3000`
+- **Frontend Web App**: `http://localhost:3000`
 
 ---
-*Boilerplate architecture designed for extensibility and modular growth.*
+
+## Vercel Deployment Guide (Two Vercel Projects)
+
+To ensure high performance, isolated logs, and zero runtime conflicts between Node.js and Python, deploy as **2 separate Vercel projects** linked to the same Git repository.
+
+```
+       +----------------------------+
+       |   Vercel Project 2         |
+       |   (Frontend - Next.js)     |
+       |   Root: /frontend          |
+       +--------------+-------------+
+                      |
+           NEXT_PUBLIC_API_BASE_URL
+                      |
+                      v
+       +----------------------------+
+       |   Vercel Project 1         |
+       |   (Backend - FastAPI)      |
+       |   Root: /backend           |
+       +----------------------------+
+```
+
+### Step 1: Deploy Backend (`/backend`)
+1. In [Vercel Dashboard](https://vercel.com/dashboard), click **Add New Project** and import this repository.
+2. Under **Root Directory**, click **Edit** and select **`backend`**.
+3. Keep Framework Preset as **Other**.
+4. Set Environment Variable:
+   - `FRONTEND_URL` = `https://<your-frontend-domain>.vercel.app` (Supports multiple comma-separated URLs for preview/production domains).
+5. Click **Deploy**. Note your deployed backend URL (e.g. `https://proofly-backend.vercel.app`).
+
+### Step 2: Deploy Frontend (`/frontend`)
+1. Click **Add New Project** again and import this repository.
+2. Under **Root Directory**, click **Edit** and select **`frontend`**.
+3. Ensure Framework Preset is **Next.js**.
+4. Set Environment Variable:
+   - `NEXT_PUBLIC_API_BASE_URL` = `https://proofly-backend.vercel.app` (URL from Step 1).
+5. Click **Deploy**. Your app is now live!
+
+### How Backend & Frontend Connect Dynamic Updates:
+- **API Requests**: The frontend uses `NEXT_PUBLIC_API_BASE_URL` configured in `src/config/env.ts` to direct all client-side and server-side requests to the backend service.
+- **CORS Handling**: Backend's `app/config.py` automatically parses `FRONTEND_URL` (supporting comma-separated values for local development, production domains, and preview deployments).
+- **Backend Changes**: When a developer adds new FastAPI routes, endpoints, or settings in `backend/app/`, Vercel automatically deploys them via serverless functions. Frontend developers simply reference `NEXT_PUBLIC_API_BASE_URL` without code refactoring.

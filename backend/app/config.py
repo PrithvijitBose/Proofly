@@ -14,7 +14,17 @@ class Settings(BaseSettings):
     # Allowed CORS Origins
     @property
     def cors_origins(self) -> List[str]:
-        return [self.FRONTEND_URL, "http://localhost:3000", "http://127.0.0.1:3000"]
+        origins = [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
+        if self.FRONTEND_URL:
+            # Support multiple comma-separated frontend URLs (e.g. local + production + preview domains)
+            for url in self.FRONTEND_URL.split(","):
+                cleaned_url = url.strip().rstrip("/")
+                if cleaned_url and cleaned_url not in origins:
+                    origins.append(cleaned_url)
+        return origins
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -49,3 +49,13 @@ pnpm-debug.log*
 *.swo
 .DS_Store
 Thumbs.db
+
+# Planning & review artifacts (never intended for the upstream repo)
+.planning/
+/review.md
+/reviews.md
+/REVIEW.md
+/research.md
+/research/
+/quick-docs.md
+/todos.md

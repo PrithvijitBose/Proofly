@@ -48,6 +48,26 @@ npm run dev
 ```
 - **Frontend Web App**: `http://localhost:3000`
 
+### 3. Configure GitHub OAuth (Journey Stories)
+
+Proofly uses **Auth.js v5** with GitHub OAuth so visitors can link their GitHub account and get a narrated "journey story" built from their public repositories (first repo, language evolution, breakout projects, current momentum).
+
+1. Create an **OAuth App** at [github.com/settings/developers](https://github.com/settings/developers):
+   - **Homepage URL**: `http://localhost:3000`
+   - **Authorization callback URL**: `http://localhost:3000/api/auth/callback/github`
+2. Copy the app's **Client ID** and **Client Secret** into `frontend/.env.local`:
+   ```
+   GITHUB_ID=your_client_id
+   GITHUB_SECRET=your_client_secret
+   AUTH_SECRET=$(openssl rand -base64 32)
+   ```
+3. Restart the frontend (`npm run dev`), then open **http://localhost:3000/journey** and click **Connect GitHub**.
+
+Notes:
+- The GitHub access token is held in an encrypted session cookie (`AUTH_SECRET`) and is only read on the server — it never reaches the browser.
+- The journey story is generated deterministically from the GitHub REST API (no third-party AI call required).
+- For production, set `AUTH_URL=https://<your-frontend-domain>` and add the Vercel production URL as a callback URL in the same OAuth App.
+
 ---
 
 ## Vercel Deployment Guide (Two Vercel Projects)

@@ -116,6 +116,8 @@ export default function Home() {
             <Button size="lg" variant="outline" className="gap-2" onClick={checkHealth}>
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               <span>Test API Link</span>
+            </Button>
+          </div>
 
           {/* Primary Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 font-mono">

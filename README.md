@@ -66,22 +66,22 @@ Visitors simply click **"Connect GitHub"**. Proofly securely requests read-only 
    ```
 
 #### Option B: Personal Access Token (PAT) Input
-Users who prefer not to use OAuth or open-source users without an OAuth app can click **"Use PAT"** in the UI and paste a Personal Access Token (`ghp_...` or `github_pat_...`) with `read:user` scope. The token is stored strictly in the user's local HTTP-only session cookie.
+Users who prefer not to use OAuth or open-source users without an OAuth app can click **"Use PAT"** in the UI and paste a Personal Access Token (`ghp_...` or `github_pat_...`).
+- **Required Scopes & Permissions**:
+  - **Classic PAT**: `read:user` and `repo` (or `public_repo` for public repositories only).
+  - **Fine-Grained PAT**: **Account permissions** `Metadata: Read-only` (with selected repositories).
+- **Private Repositories**: Supported if the token includes `repo` scope or Fine-Grained repository access.
+- **Storage**: Token is stored in a persistent 30-day HTTP-only cookie.
 
 #### Option C: Open-Source Self-Hosting
 To host your own Proofly deployment:
-1. Register a GitHub OAuth App under your own GitHub account.
-2. Deploy the `frontend` to Vercel/Netlify.
-3. Set `AUTH_TRUST_HOST=true`, `AUTH_SECRET`, `GITHUB_ID`, and `GITHUB_SECRET` in your host's Environment Variables.
-   GITHUB_SECRET=your_client_secret
-   AUTH_SECRET=$(openssl rand -base64 32)
-   ```
-3. Restart the frontend (`npm run dev`), then open **http://localhost:3000/journey** and click **Connect GitHub**.
+1. Register a GitHub OAuth App under your own GitHub account (set callback URL to `https://<your-domain>/api/auth/callback/github`).
+2. Deploy `frontend` to your server or Vercel.
+3. Set `AUTH_TRUST_HOST=true`, `AUTH_SECRET`, `GITHUB_ID`, and `GITHUB_SECRET` in your host environment variables.
 
 Notes:
-- The GitHub access token is held in an encrypted session cookie (`AUTH_SECRET`) and is only read on the server — it never reaches the browser.
+- The GitHub access token is held in the encrypted Auth.js JWT session cookie and read on the server — it never reaches the browser.
 - The journey story is generated deterministically from the GitHub REST API (no third-party AI call required).
-- For production, set `AUTH_URL=https://<your-frontend-domain>` and add the Vercel production URL as a callback URL in the same OAuth App.
 
 ---
 

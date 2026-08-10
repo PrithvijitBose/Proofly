@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { setPatTokenAction, clearPatTokenAction } from "@/lib/auth/pat-token";
@@ -12,11 +12,61 @@ interface PatSignInModalProps {
   hasExistingPat?: boolean;
 }
 
-export function PatSignInModal({ isOpen, onClose, hasExistingPat }: PatSignInModalProps) {
+export function PatSignInModal({ isOpen, onClose, hasExistingPat = true }: PatSignInModalProps) {
   const [tokenInput, setTokenInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const triggerElementRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Capture triggering element to restore focus when modal closes
+    triggerElementRef.current = document.activeElement as HTMLElement | null;
+
+    // Move initial focus into input field
+    const focusTimer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 50);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      clearTimeout(focusTimer);
+      window.removeEventListener("keydown", handleKeyDown);
+      triggerElementRef.current?.focus();
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -62,9 +112,21 @@ export function PatSignInModal({ isOpen, onClose, hasExistingPat }: PatSignInMod
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md rounded-2xl border border-proof-border bg-proof-obsidian p-6 shadow-2xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pat-modal-title"
+        className="relative w-full max-w-md rounded-2xl border border-proof-border bg-proof-obsidian p-6 shadow-2xl"
+      >
         <button
+          type="button"
           onClick={onClose}
           className="absolute right-4 top-4 text-slate-400 hover:text-white transition-colors"
           aria-label="Close dialog"
@@ -77,17 +139,21 @@ export function PatSignInModal({ isOpen, onClose, hasExistingPat }: PatSignInMod
             <Key className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="font-display text-lg font-bold text-white">GitHub Personal Access Token</h3>
+            <h3 id="pat-modal-title" className="font-display text-lg font-bold text-white">
+              GitHub Personal Access Token
+            </h3>
             <p className="text-xs text-slate-400">For self-hosting & power users (Option B)</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-mono text-slate-300 mb-1.5">
+            <label htmlFor="pat-token-input" className="block text-xs font-mono text-slate-300 mb-1.5">
               Paste Token (<code className="text-proof-amber">ghp_...</code> or <code className="text-proof-amber">github_pat_...</code>)
             </label>
             <input
+              id="pat-token-input"
+              ref={inputRef}
               type="password"
               value={tokenInput}
               onChange={(e) => setTokenInput(e.target.value)}
@@ -103,7 +169,7 @@ export function PatSignInModal({ isOpen, onClose, hasExistingPat }: PatSignInMod
             </div>
             <p className="font-mono text-slate-300 pl-5">read:user, repo (public_repo)</p>
             <p className="text-slate-400 pt-1">
-              Token is saved strictly in your browser&apos;s encrypted HTTP-only session cookie.
+              Token is stored in a persistent 30-day HTTP-only cookie.
             </p>
           </div>
 

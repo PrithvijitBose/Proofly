@@ -10,11 +10,13 @@ export function GitHubSignInButton({
   callbackUrl = "/journey",
   className,
   showPatOption = true,
+  hasExistingPat,
 }: {
   label?: string;
   callbackUrl?: string;
   className?: string;
   showPatOption?: boolean;
+  hasExistingPat?: boolean;
 }) {
   const [patModalOpen, setPatModalOpen] = useState(false);
 
@@ -46,7 +48,11 @@ export function GitHubSignInButton({
             <span>Use PAT</span>
           </button>
 
-          <PatSignInModal isOpen={patModalOpen} onClose={() => setPatModalOpen(false)} />
+          <PatSignInModal
+            isOpen={patModalOpen}
+            onClose={() => setPatModalOpen(false)}
+            hasExistingPat={hasExistingPat}
+          />
         </>
       )}
     </div>

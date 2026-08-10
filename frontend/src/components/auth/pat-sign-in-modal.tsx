@@ -49,10 +49,16 @@ export function PatSignInModal({ isOpen, onClose, hasExistingPat }: PatSignInMod
 
   const handleClear = async () => {
     setLoading(true);
-    await clearPatTokenAction();
-    setLoading(false);
-    onClose();
-    router.refresh();
+    setError(null);
+    try {
+      await clearPatTokenAction();
+      onClose();
+      router.refresh();
+    } catch {
+      setError("An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

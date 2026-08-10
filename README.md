@@ -48,36 +48,55 @@ npm run dev
 ```
 - **Frontend Web App**: `http://localhost:3000`
 
-### 3. Authentication & GitHub API Setup
+### 3. Authentication Models & Deployment Guide
 
-Proofly supports **three authentication models** to accommodate every user and hosting environment:
+Proofly supports **three distinct authentication models** tailored for general end-users, open-source contributors, and self-hosting organizations:
 
-#### Option A: Standard 1-Click OAuth (Recommended for Production / Web App)
-Visitors simply click **"Connect GitHub"**. Proofly securely requests read-only user access via Auth.js v5.
-1. Create an OAuth App at [github.com/settings/developers](https://github.com/settings/developers):
-   - **Homepage URL**: `https://<your-app-domain>` (or `http://localhost:3000` for local dev)
-   - **Authorization callback URL**: `https://<your-app-domain>/api/auth/callback/github`
-2. Add environment variables to `frontend/.env.local` (or Vercel Environment Variables):
-   ```env
-   GITHUB_ID=your_client_id
-   GITHUB_SECRET=your_client_secret
-   AUTH_SECRET=generate_a_random_secret_here
-   AUTH_TRUST_HOST=true
-   ```
+#### 🟢 Option A: 1-Click OAuth (For End-Users)
+* **Who it is for**: General visitors using your live hosted web application (`proofly-omega.vercel.app`).
+* **User Experience**: Visitors simply click **"AUTHENTICATE GITHUB"** and authorize Proofly.
+* **Setup Required from End-Users**: **ZERO**. End-users do not create OAuth Apps or manage environment variables.
+* **Security**: Access tokens are held in an encrypted Auth.js JWT session cookie (`HttpOnly`) and read strictly server-side.
 
-#### Option B: Personal Access Token (PAT) Input
-Users who prefer not to use OAuth or open-source users without an OAuth app can click **"Use PAT"** in the UI and paste a Personal Access Token (`ghp_...` or `github_pat_...`).
-- **Required Scopes & Permissions**:
-  - **Classic PAT**: `read:user` and `repo` (or `public_repo` for public repositories only).
-  - **Fine-Grained PAT**: **Repository permissions** `Metadata: Read-only` (with selected repositories).
-- **Private Repositories**: Supported if the token includes `repo` scope or Fine-Grained repository access.
-- **Storage**: Token is stored in a persistent 30-day HTTP-only cookie.
+#### 🟡 Option B: Personal Access Token / PAT Input (For Open-Source Contributors)
+* **Who it is for**: Open-source contributors cloning Proofly to test, develop, or submit PRs locally **without creating a GitHub OAuth App**.
+* **Why this exists**: Contributors don't need to register an OAuth App just to run `npm run dev`. They can sign in immediately using a Personal Access Token.
+* **How Contributors Get a PAT**:
+  1. Go to GitHub -> **Settings** -> **Developer Settings** -> **Personal Access Tokens**.
+  2. Click **Generate new token (classic)** or **Fine-grained token**.
+  3. Grant required scopes:
+     - **Classic PAT**: `read:user` and `repo` (or `public_repo` for public repositories only).
+     - **Fine-Grained PAT**: **Repository permissions** `Metadata: Read-only`.
+  4. Copy the generated token starting with `ghp_...` or `github_pat_...`.
+* **How Contributors Use It**:
+  - Open `http://localhost:3000`, click **"Use PAT"**, paste the token, and click **Save**.
+  - Token is securely saved in a persistent 30-day HTTP-only cookie (`proofly_pat_token`).
 
-#### Option C: Open-Source Self-Hosting
-To host your own Proofly deployment:
-1. Register a GitHub OAuth App under your own GitHub account (set callback URL to `https://<your-domain>/api/auth/callback/github`).
-2. Deploy `frontend` to your server or Vercel.
-3. Set `AUTH_TRUST_HOST=true`, `AUTH_SECRET`, `GITHUB_ID`, and `GITHUB_SECRET` in your host environment variables.
+#### 🔵 Option C: Self-Hosting & Custom Deployments (For Businesses & Self-Hosters)
+* **Who it is for**: Companies, teams, or independent developers deploying their own custom/private instance of Proofly (e.g., on Vercel, AWS, or Railway).
+* **Step-by-Step Setup**:
+  1. **Register a GitHub OAuth App**:
+     - Go to GitHub -> **Developer Settings** -> **OAuth Apps** -> **New OAuth App**.
+     - **Homepage URL**: `https://<your-custom-frontend-domain>`
+     - **Authorization callback URL**: `https://<your-custom-frontend-domain>/api/auth/callback/github`
+  2. **Deploy `/backend` (Python FastAPI)**:
+     - Deploy the `backend/` directory to Vercel, Railway, or Render.
+     - Note your backend deployment URL (e.g. `https://proofly-api.railway.app`).
+  3. **Deploy `/frontend` (Next.js)**:
+     - Deploy the `frontend/` directory to Vercel or a Node.js server.
+     - Set the following environment variables in your frontend host environment:
+       ```env
+       # OAuth Credentials (from step 1)
+       GITHUB_ID=your_github_client_id
+       GITHUB_SECRET=your_github_client_secret
+
+       # NextAuth Security
+       AUTH_SECRET=generate_a_random_32_char_secret
+       AUTH_TRUST_HOST=true
+
+       # Backend API Link
+       NEXT_PUBLIC_API_BASE_URL=https://<your-backend-domain>
+       ```
 
 Notes:
 - **Cookies & Security**: Authentication uses two HTTP-only cookies stored in the browser and sent with server requests:

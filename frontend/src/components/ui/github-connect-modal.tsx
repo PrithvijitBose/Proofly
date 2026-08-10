@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Github, CheckCircle2, Lock, X, Terminal } from "lucide-react";
+import { signIn } from "next-auth/react";
 
 interface GithubConnectModalProps {
   isOpen: boolean;
@@ -70,7 +71,12 @@ export function GithubConnectModal({ isOpen, onClose }: GithubConnectModalProps)
             <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
               CLOSE
             </Button>
-            <Button variant="amber" size="sm" onClick={onClose} className="text-xs gap-2">
+            <Button
+              variant="amber"
+              size="sm"
+              onClick={() => signIn("github", { callbackUrl: "/journey" })}
+              className="text-xs gap-2 font-bold shadow-glow-amber"
+            >
               <Github className="h-3.5 w-3.5" />
               <span>PROCEED TO GITHUB</span>
             </Button>

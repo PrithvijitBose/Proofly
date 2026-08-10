@@ -69,7 +69,7 @@ Visitors simply click **"Connect GitHub"**. Proofly securely requests read-only 
 Users who prefer not to use OAuth or open-source users without an OAuth app can click **"Use PAT"** in the UI and paste a Personal Access Token (`ghp_...` or `github_pat_...`).
 - **Required Scopes & Permissions**:
   - **Classic PAT**: `read:user` and `repo` (or `public_repo` for public repositories only).
-  - **Fine-Grained PAT**: **Account permissions** `Metadata: Read-only` (with selected repositories).
+  - **Fine-Grained PAT**: **Repository permissions** `Metadata: Read-only` (with selected repositories).
 - **Private Repositories**: Supported if the token includes `repo` scope or Fine-Grained repository access.
 - **Storage**: Token is stored in a persistent 30-day HTTP-only cookie.
 

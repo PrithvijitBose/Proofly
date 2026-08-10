@@ -12,7 +12,7 @@ interface PatSignInModalProps {
   hasExistingPat?: boolean;
 }
 
-export function PatSignInModal({ isOpen, onClose, hasExistingPat = true }: PatSignInModalProps) {
+export function PatSignInModal({ isOpen, onClose, hasExistingPat = false }: PatSignInModalProps) {
   const [tokenInput, setTokenInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

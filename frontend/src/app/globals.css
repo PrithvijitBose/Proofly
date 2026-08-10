@@ -4,55 +4,118 @@
 
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 228 25% 6%;
+    --foreground: 215 30% 96%;
 
-    --card: 222.2 84% 6.5%;
-    --card-foreground: 210 40% 98%;
+    --card: 225 24% 10%;
+    --card-foreground: 215 30% 96%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 228 25% 6%;
+    --popover-foreground: 215 30% 96%;
 
-    --primary: 238 84% 67%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 187 100% 50%;
+    --primary-foreground: 228 25% 6%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 224 20% 16%;
+    --secondary-foreground: 215 30% 96%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 224 20% 16%;
+    --muted-foreground: 217 18% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 38 100% 56%;
+    --accent-foreground: 228 25% 6%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 215 30% 96%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --border: 222 24% 17%;
+    --input: 222 24% 17%;
+    --ring: 187 100% 50%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-proof-border;
+  }
+  html {
+    scroll-behavior: smooth;
   }
   body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-proof-obsidian text-slate-100 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     background-image: 
-      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.06) 0px, transparent 50%);
+      radial-gradient(ellipse at 50% 0%, rgba(0, 229, 255, 0.07) 0%, transparent 60%),
+      radial-gradient(ellipse at 85% 50%, rgba(255, 176, 32, 0.04) 0%, transparent 50%);
     background-attachment: fixed;
+  }
+
+  ::selection {
+    background-color: rgba(255, 176, 32, 0.3);
+    color: #ffffff;
   }
 }
 
+/* Custom Proofly Design System Utilities */
+.bg-grid-pattern {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+.bg-dot-pattern {
+  background-size: 24px 24px;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+}
+
+.proof-card {
+  background: #121620;
+  border: 1px solid #1E2638;
+  border-radius: 0.75rem;
+}
+
 .glass-panel {
-  background: rgba(15, 23, 42, 0.65);
+  background: rgba(18, 22, 32, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #1E2638;
 }
+
+.glass-nav {
+  background: rgba(11, 13, 18, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid #1E2638;
+}
+
+.gradient-text-primary {
+  @apply bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent;
+}
+
+.gradient-text-amber {
+  @apply bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 bg-clip-text text-transparent;
+}
+
+.gradient-text-cyan {
+  @apply bg-gradient-to-r from-cyan-300 via-cyan-400 to-teal-300 bg-clip-text text-transparent;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0B0D12;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E2638;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2E3A52;
+}
+

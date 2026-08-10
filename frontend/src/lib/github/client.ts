@@ -100,7 +100,8 @@ export async function getAuthenticatedUser(token: string): Promise<GitHubUser> {
 export async function fetchOwnedRepos(token: string): Promise<GitHubRepo[]> {
   const repos: GitHubRepo[] = [];
   let page = 1;
-  while (true) {
+  const maxPages = 5; // Safety cap: max 500 repos to prevent Vercel request timeouts
+  while (page <= maxPages) {
     const batch = await ghRequest<GitHubRepo[]>("/user/repos?affiliation=owner&sort=created&direction=asc", {
       token,
       perPage: 100,

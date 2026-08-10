@@ -48,16 +48,31 @@ npm run dev
 ```
 - **Frontend Web App**: `http://localhost:3000`
 
-### 3. Configure GitHub OAuth (Journey Stories)
+### 3. Authentication & GitHub API Setup
 
-Proofly uses **Auth.js v5** with GitHub OAuth so visitors can link their GitHub account and get a narrated "journey story" built from their public repositories (first repo, language evolution, breakout projects, current momentum).
+Proofly supports **three authentication models** to accommodate every user and hosting environment:
 
-1. Create an **OAuth App** at [github.com/settings/developers](https://github.com/settings/developers):
-   - **Homepage URL**: `http://localhost:3000`
-   - **Authorization callback URL**: `http://localhost:3000/api/auth/callback/github`
-2. Copy the app's **Client ID** and **Client Secret** into `frontend/.env.local`:
-   ```
+#### Option A: Standard 1-Click OAuth (Recommended for Production / Web App)
+Visitors simply click **"Connect GitHub"**. Proofly securely requests read-only user access via Auth.js v5.
+1. Create an OAuth App at [github.com/settings/developers](https://github.com/settings/developers):
+   - **Homepage URL**: `https://<your-app-domain>` (or `http://localhost:3000` for local dev)
+   - **Authorization callback URL**: `https://<your-app-domain>/api/auth/callback/github`
+2. Add environment variables to `frontend/.env.local` (or Vercel Environment Variables):
+   ```env
    GITHUB_ID=your_client_id
+   GITHUB_SECRET=your_client_secret
+   AUTH_SECRET=generate_a_random_secret_here
+   AUTH_TRUST_HOST=true
+   ```
+
+#### Option B: Personal Access Token (PAT) Input
+Users who prefer not to use OAuth or open-source users without an OAuth app can click **"Use PAT"** in the UI and paste a Personal Access Token (`ghp_...` or `github_pat_...`) with `read:user` scope. The token is stored strictly in the user's local HTTP-only session cookie.
+
+#### Option C: Open-Source Self-Hosting
+To host your own Proofly deployment:
+1. Register a GitHub OAuth App under your own GitHub account.
+2. Deploy the `frontend` to Vercel/Netlify.
+3. Set `AUTH_TRUST_HOST=true`, `AUTH_SECRET`, `GITHUB_ID`, and `GITHUB_SECRET` in your host's Environment Variables.
    GITHUB_SECRET=your_client_secret
    AUTH_SECRET=$(openssl rand -base64 32)
    ```

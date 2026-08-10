@@ -1,28 +1,18 @@
-import { getToken } from "next-auth/jwt";
-import { cookies } from "next/headers";
+import { auth } from "@/auth";
+import { getPatToken } from "./pat-token";
 
 /**
- * Server-only: returns the GitHub access token from the encrypted Auth.js
- * session cookie.
- *
- * The token is stashed in the session JWT by the `jwt` callback in
- * `src/auth.ts` and deliberately NOT exposed through `session.user`, so it
- * can never be serialized to the client. Only this module (or equivalents
- * that import `next/headers`) may read it — importing it from a client
- * component fails the build.
+ * Server-only: Returns the active GitHub access token.
+ * Checks NextAuth OAuth session first, then falls back to custom PAT token cookie.
  */
 export async function getGitHubAccessToken(): Promise<string | null> {
-  const cookieStore = await cookies();
-  // Dev cookie: authjs.session-token · Production (https): __Secure-authjs.session-token
-  const sessionCookie = cookieStore
-    .getAll()
-    .find((c) => c.name.endsWith("authjs.session-token"));
-  if (!sessionCookie) return null;
+  // 1. Try OAuth session token
+  const session = await auth();
+  if (session?.accessToken) {
+    return session.accessToken;
+  }
 
-  const token = await getToken({
-    req: { headers: new Headers({ cookie: `${sessionCookie.name}=${sessionCookie.value}` }) },
-    cookieName: sessionCookie.name,
-    secret: process.env.AUTH_SECRET,
-  });
-  return (token?.accessToken as string | undefined) ?? null;
+  // 2. Fallback to custom Personal Access Token (PAT)
+  const pat = await getPatToken();
+  return pat;
 }

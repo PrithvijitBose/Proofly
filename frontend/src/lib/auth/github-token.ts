@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import { getToken } from "next-auth/jwt";
 import { cookies, headers } from "next/headers";
 import { getPatToken } from "./pat-token";
@@ -5,12 +6,22 @@ import { getPatToken } from "./pat-token";
 /**
  * Server-only: returns the GitHub access token.
  *
- * Reads the token from the encrypted Auth.js JWT session cookie on the server
- * first, so `accessToken` never needs to be exposed on the `session` object.
- * Resolves effective session cookie configuration (__Secure- prefix in HTTPS production).
- * Falls back to a custom Personal Access Token (PAT) if signed out of OAuth.
+ * Checks `session.accessToken` via `auth()` first for clean 100% reliable server-side
+ * retrieval. If not present on session, attempts server-side JWT cookie decryption,
+ * falling back to custom PAT token cookie.
  */
 export async function getGitHubAccessToken(): Promise<string | null> {
+  // 1. Try NextAuth session access token directly
+  try {
+    const session = await auth();
+    if (session?.accessToken) {
+      return session.accessToken;
+    }
+  } catch {
+    // Ignore error
+  }
+
+  // 2. Try reading access token from Auth.js JWT cookie on server
   try {
     const cookieStore = await cookies();
     const cookieList = cookieStore.getAll();
@@ -43,9 +54,9 @@ export async function getGitHubAccessToken(): Promise<string | null> {
       }
     }
   } catch {
-    // If JWT retrieval fails or is not present, fall through to PAT
+    // Fall through to PAT
   }
 
-  // Fallback to custom Personal Access Token (PAT)
+  // 3. Fallback to custom Personal Access Token (PAT)
   return getPatToken();
 }

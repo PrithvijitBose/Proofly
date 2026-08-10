@@ -22,7 +22,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.GITHUB_ID,
       clientSecret: process.env.GITHUB_SECRET,
       authorization: {
-        params: { scope: "read:user user:email" },
+        params: { scope: "read:user" },
       },
     }),
   ],
@@ -48,8 +48,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.login = token.login as string;
       session.user.avatar = token.avatar as string;
       session.user.name = (token.name as string) ?? (token.login as string);
-      // Server-side only: used by the journey page to talk to the GitHub API.
-      session.user.accessToken = token.accessToken as string;
+      // Deliberately NOT copying token.accessToken into the session object:
+      // the token must stay out of anything that can be serialized to the
+      // client. Server code reads it via getGitHubAccessToken() instead.
       return session;
     },
   },

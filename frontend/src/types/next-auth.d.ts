@@ -7,8 +7,6 @@ declare module "next-auth" {
       login: string;
       /** GitHub avatar URL */
       avatar: string;
-      /** GitHub access token. Server-side only — never render or pass to client components. */
-      accessToken: string;
     } & DefaultSession["user"];
   }
 }

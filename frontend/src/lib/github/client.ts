@@ -92,20 +92,23 @@ export async function getAuthenticatedUser(token: string): Promise<GitHubUser> {
 
 /**
  * Repositories owned by the authenticated user, oldest first.
- * Fetches up to 200 repos (2 pages × 100) — far beyond typical usage.
- * `affiliation=owner` keeps collaborator/org repos from watering down the journey.
+ * Paginates sequentially (100 per page) until GitHub returns a short or
+ * empty page, so no owned repository is silently truncated. The API applies
+ * `sort=created&direction=asc` server-side per page, so accumulated pages
+ * preserve oldest-first ordering.
  */
 export async function fetchOwnedRepos(token: string): Promise<GitHubRepo[]> {
   const repos: GitHubRepo[] = [];
-  for (let page = 1; page <= 2; page++) {
+  let page = 1;
+  while (true) {
     const batch = await ghRequest<GitHubRepo[]>("/user/repos?affiliation=owner&sort=created&direction=asc", {
       token,
       perPage: 100,
       page,
     });
-    if (batch.length === 0) break;
     repos.push(...batch);
     if (batch.length < 100) break;
+    page += 1;
   }
   return repos;
 }

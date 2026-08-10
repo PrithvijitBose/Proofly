@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { getGitHubAccessToken } from "@/lib/auth/github-token";
 import { buildJourneyStory } from "@/lib/github/journey";
 import { fetchOwnedRepos, getAuthenticatedUser, GitHubApiError } from "@/lib/github/client";
 import { GitHubSignInButton } from "@/components/auth/github-sign-in-button";
@@ -9,8 +10,9 @@ export const dynamic = "force-dynamic";
 export default async function JourneyPage() {
   const session = await auth();
   const user = session?.user;
+  const accessToken = await getGitHubAccessToken();
 
-  if (!user || !user.login || !user.accessToken) {
+  if (!user || !user.login || !accessToken) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -33,8 +35,8 @@ export default async function JourneyPage() {
   let story;
   try {
     const [ghUser, repos] = await Promise.all([
-      getAuthenticatedUser(user.accessToken),
-      fetchOwnedRepos(user.accessToken),
+      getAuthenticatedUser(accessToken),
+      fetchOwnedRepos(accessToken),
     ]);
     story = buildJourneyStory(ghUser, repos);
   } catch (err) {

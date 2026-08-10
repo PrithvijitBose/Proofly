@@ -48,25 +48,43 @@ npm run dev
 ```
 - **Frontend Web App**: `http://localhost:3000`
 
-### 3. Configure GitHub OAuth (Journey Stories)
+### 3. Authentication & GitHub API Setup
 
-Proofly uses **Auth.js v5** with GitHub OAuth so visitors can link their GitHub account and get a narrated "journey story" built from their public repositories (first repo, language evolution, breakout projects, current momentum).
+Proofly supports **three authentication models** to accommodate every user and hosting environment:
 
-1. Create an **OAuth App** at [github.com/settings/developers](https://github.com/settings/developers):
-   - **Homepage URL**: `http://localhost:3000`
-   - **Authorization callback URL**: `http://localhost:3000/api/auth/callback/github`
-2. Copy the app's **Client ID** and **Client Secret** into `frontend/.env.local`:
-   ```
+#### Option A: Standard 1-Click OAuth (Recommended for Production / Web App)
+Visitors simply click **"Connect GitHub"**. Proofly securely requests read-only user access via Auth.js v5.
+1. Create an OAuth App at [github.com/settings/developers](https://github.com/settings/developers):
+   - **Homepage URL**: `https://<your-app-domain>` (or `http://localhost:3000` for local dev)
+   - **Authorization callback URL**: `https://<your-app-domain>/api/auth/callback/github`
+2. Add environment variables to `frontend/.env.local` (or Vercel Environment Variables):
+   ```env
    GITHUB_ID=your_client_id
    GITHUB_SECRET=your_client_secret
-   AUTH_SECRET=$(openssl rand -base64 32)
+   AUTH_SECRET=generate_a_random_secret_here
+   AUTH_TRUST_HOST=true
    ```
-3. Restart the frontend (`npm run dev`), then open **http://localhost:3000/journey** and click **Connect GitHub**.
+
+#### Option B: Personal Access Token (PAT) Input
+Users who prefer not to use OAuth or open-source users without an OAuth app can click **"Use PAT"** in the UI and paste a Personal Access Token (`ghp_...` or `github_pat_...`).
+- **Required Scopes & Permissions**:
+  - **Classic PAT**: `read:user` and `repo` (or `public_repo` for public repositories only).
+  - **Fine-Grained PAT**: **Repository permissions** `Metadata: Read-only` (with selected repositories).
+- **Private Repositories**: Supported if the token includes `repo` scope or Fine-Grained repository access.
+- **Storage**: Token is stored in a persistent 30-day HTTP-only cookie.
+
+#### Option C: Open-Source Self-Hosting
+To host your own Proofly deployment:
+1. Register a GitHub OAuth App under your own GitHub account (set callback URL to `https://<your-domain>/api/auth/callback/github`).
+2. Deploy `frontend` to your server or Vercel.
+3. Set `AUTH_TRUST_HOST=true`, `AUTH_SECRET`, `GITHUB_ID`, and `GITHUB_SECRET` in your host environment variables.
 
 Notes:
-- The GitHub access token is held in an encrypted session cookie (`AUTH_SECRET`) and is only read on the server — it never reaches the browser.
+- **Cookies & Security**: Authentication uses two HTTP-only cookies stored in the browser and sent with server requests:
+  - **Auth.js Session Cookie** (`authjs.session-token` / `__Secure-authjs.session-token`): Holds the encrypted OAuth JWT.
+  - **PAT Cookie** (`proofly_pat_token`): Holds custom Personal Access Tokens for PAT sign-ins.
+  - Both cookies use `HttpOnly` to prevent client-side JavaScript access (`document.cookie`). Access tokens are read server-side and are never serialized into the client-visible session object.
 - The journey story is generated deterministically from the GitHub REST API (no third-party AI call required).
-- For production, set `AUTH_URL=https://<your-frontend-domain>` and add the Vercel production URL as a callback URL in the same OAuth App.
 
 ---
 

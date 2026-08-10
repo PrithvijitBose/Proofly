@@ -33,7 +33,7 @@ export async function getGitHubAccessToken(): Promise<string | null> {
 
       const token = await getToken({
         req: { headers: reqHeaders },
-        secret: process.env.AUTH_SECRET,
+        secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
         secureCookie: isSecure,
         ...(baseCookieName ? { cookieName: baseCookieName } : {}),
       });

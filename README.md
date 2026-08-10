@@ -80,7 +80,10 @@ To host your own Proofly deployment:
 3. Set `AUTH_TRUST_HOST=true`, `AUTH_SECRET`, `GITHUB_ID`, and `GITHUB_SECRET` in your host environment variables.
 
 Notes:
-- The GitHub access token is held in the encrypted Auth.js JWT session cookie and read on the server — it never reaches the browser.
+- **Cookies & Security**: Authentication uses two HTTP-only cookies stored in the browser and sent with server requests:
+  - **Auth.js Session Cookie** (`authjs.session-token` / `__Secure-authjs.session-token`): Holds the encrypted OAuth JWT.
+  - **PAT Cookie** (`proofly_pat_token`): Holds custom Personal Access Tokens for PAT sign-ins.
+  - Both cookies use `HttpOnly` to prevent client-side JavaScript access (`document.cookie`). Access tokens are read server-side and are never serialized into the client-visible session object.
 - The journey story is generated deterministically from the GitHub REST API (no third-party AI call required).
 
 ---

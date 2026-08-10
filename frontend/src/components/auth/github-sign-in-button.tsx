@@ -52,6 +52,7 @@ export function GitHubSignInButton({
             isOpen={patModalOpen}
             onClose={() => setPatModalOpen(false)}
             hasExistingPat={hasExistingPat}
+            callbackUrl={callbackUrl}
           />
         </>
       )}

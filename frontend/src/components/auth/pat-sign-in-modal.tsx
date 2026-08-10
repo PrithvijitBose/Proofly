@@ -10,9 +10,15 @@ interface PatSignInModalProps {
   isOpen: boolean;
   onClose: () => void;
   hasExistingPat?: boolean;
+  callbackUrl?: string;
 }
 
-export function PatSignInModal({ isOpen, onClose, hasExistingPat = true }: PatSignInModalProps) {
+export function PatSignInModal({
+  isOpen,
+  onClose,
+  hasExistingPat = true,
+  callbackUrl = "/journey",
+}: PatSignInModalProps) {
   const [tokenInput, setTokenInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,9 +27,20 @@ export function PatSignInModal({ isOpen, onClose, hasExistingPat = true }: PatSi
   const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const triggerElementRef = useRef<HTMLElement | null>(null);
+  const prevIsOpenRef = useRef(isOpen);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (prevIsOpenRef.current && !isOpen) {
+      triggerElementRef.current?.focus();
+      triggerElementRef.current = null;
+    }
+    prevIsOpenRef.current = isOpen;
+
+    if (!isOpen) {
+      setTokenInput("");
+      setError(null);
+      return;
+    }
 
     // Capture triggering element to restore focus when modal closes
     triggerElementRef.current = document.activeElement as HTMLElement | null;
@@ -64,7 +81,6 @@ export function PatSignInModal({ isOpen, onClose, hasExistingPat = true }: PatSi
     return () => {
       clearTimeout(focusTimer);
       window.removeEventListener("keydown", handleKeyDown);
-      triggerElementRef.current?.focus();
     };
   }, [isOpen, onClose]);
 
@@ -88,7 +104,7 @@ export function PatSignInModal({ isOpen, onClose, hasExistingPat = true }: PatSi
         return;
       }
       onClose();
-      router.push("/journey");
+      router.push(callbackUrl);
       router.refresh();
     } catch {
       setError("An unexpected error occurred.");
@@ -158,6 +174,8 @@ export function PatSignInModal({ isOpen, onClose, hasExistingPat = true }: PatSi
               value={tokenInput}
               onChange={(e) => setTokenInput(e.target.value)}
               placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? "pat-token-error" : undefined}
               className="w-full rounded-lg border border-proof-border bg-proof-carbon px-3 py-2 text-xs font-mono text-white placeholder-slate-500 focus:border-proof-amber focus:outline-none"
             />
           </div>
@@ -173,7 +191,11 @@ export function PatSignInModal({ isOpen, onClose, hasExistingPat = true }: PatSi
             </p>
           </div>
 
-          {error && <p className="text-xs text-red-400 font-mono">{error}</p>}
+          {error && (
+            <p id="pat-token-error" role="alert" aria-live="assertive" className="text-xs text-red-400 font-mono">
+              {error}
+            </p>
+          )}
 
           <div className="flex items-center justify-between pt-2">
             {hasExistingPat ? (

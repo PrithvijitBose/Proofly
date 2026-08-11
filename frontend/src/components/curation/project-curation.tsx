@@ -117,7 +117,7 @@ export function ProjectCuration({ availableRepos, user }: ProjectCurationProps) 
     }
   };
 
-  if (!mounted) {
+  if (!mounted || !user?.login || hydratedUser !== user.login) {
     return (
       <div className="flex h-64 items-center justify-center font-mono text-xs text-proof-ash">
         HYDRATING_CURATION_STATE...

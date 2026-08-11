@@ -25,7 +25,7 @@ export default async function ProjectsPage() {
           Sign in with GitHub to view your repositories, select which projects represent your true professional identity, prioritize them, and annotate custom highlights.
         </p>
         <div className="mt-8 flex justify-center">
-          <GitHubSignInButton label={"Connect GitHub & curate projects"} />
+          <GitHubSignInButton label="Connect GitHub & curate projects" callbackUrl="/projects" />
         </div>
       </div>
     );

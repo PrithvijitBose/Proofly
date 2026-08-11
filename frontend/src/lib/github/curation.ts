@@ -14,15 +14,22 @@ export interface CuratedProject {
   priority: number; // 1-indexed priority order
 }
 
-const CURATED_STORAGE_KEY = "proofly_curated_projects_v1";
+/**
+ * Returns a stable, per-account storage key for localStorage isolation.
+ */
+export function getCuratedStorageKey(userId: string): string {
+  const safeId = (userId || "default").toLowerCase().trim();
+  return `proofly_curated_projects_v1_${safeId}`;
+}
 
 /**
- * Reads curated projects from localStorage.
+ * Reads curated projects from localStorage for a specific authenticated account.
  */
-export function loadCuratedProjects(): CuratedProject[] {
-  if (typeof window === "undefined") return [];
+export function loadCuratedProjects(userId: string): CuratedProject[] {
+  if (typeof window === "undefined" || !userId) return [];
   try {
-    const raw = localStorage.getItem(CURATED_STORAGE_KEY);
+    const key = getCuratedStorageKey(userId);
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
@@ -35,19 +42,33 @@ export function loadCuratedProjects(): CuratedProject[] {
 }
 
 /**
- * Persists curated projects to localStorage.
+ * Persists curated projects to localStorage for a specific authenticated account.
  */
-export function saveCuratedProjects(projects: CuratedProject[]): void {
-  if (typeof window === "undefined") return;
+export function saveCuratedProjects(userId: string, projects: CuratedProject[]): void {
+  if (typeof window === "undefined" || !userId) return;
   try {
+    const key = getCuratedStorageKey(userId);
     // Re-index priority sequentially before saving
     const normalized = projects.map((p, idx) => ({
       ...p,
       priority: idx + 1,
     }));
-    localStorage.setItem(CURATED_STORAGE_KEY, JSON.stringify(normalized));
+    localStorage.setItem(key, JSON.stringify(normalized));
   } catch (err) {
     console.error("Failed to save curated projects to localStorage:", err);
+  }
+}
+
+/**
+ * Removes curated projects from localStorage for a specific authenticated account.
+ */
+export function clearCuratedProjects(userId: string): void {
+  if (typeof window === "undefined" || !userId) return;
+  try {
+    const key = getCuratedStorageKey(userId);
+    localStorage.removeItem(key);
+  } catch (err) {
+    console.error("Failed to clear curated projects from localStorage:", err);
   }
 }
 

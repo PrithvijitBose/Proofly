@@ -6,6 +6,7 @@ import {
   CuratedProject,
   loadCuratedProjects,
   saveCuratedProjects,
+  clearCuratedProjects,
   mapRepoToCuratedProject,
 } from "@/lib/github/curation";
 import { Button } from "@/components/ui/button";
@@ -42,17 +43,19 @@ export function ProjectCuration({ availableRepos, user }: ProjectCurationProps) 
 
   useEffect(() => {
     setMounted(true);
-    const saved = loadCuratedProjects();
-    if (saved.length > 0) {
-      setCuratedProjects(saved);
+    if (user?.login) {
+      const saved = loadCuratedProjects(user.login);
+      if (saved.length > 0) {
+        setCuratedProjects(saved);
+      }
     }
-  }, []);
+  }, [user?.login]);
 
   useEffect(() => {
-    if (mounted) {
-      saveCuratedProjects(curatedProjects);
+    if (mounted && user?.login) {
+      saveCuratedProjects(user.login, curatedProjects);
     }
-  }, [curatedProjects, mounted]);
+  }, [curatedProjects, mounted, user?.login]);
 
   const curatedRepoIds = new Set(curatedProjects.map((p) => p.repoId));
 
@@ -106,8 +109,8 @@ export function ProjectCuration({ availableRepos, user }: ProjectCurationProps) 
   const handleResetCuration = () => {
     if (confirm("Are you sure you want to clear your selected project highlights?")) {
       setCuratedProjects([]);
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("proofly_curated_projects_v1");
+      if (user?.login) {
+        clearCuratedProjects(user.login);
       }
     }
   };

@@ -40,22 +40,24 @@ export function ProjectCuration({ availableRepos, user }: ProjectCurationProps) 
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"highlights" | "all">("highlights");
   const [mounted, setMounted] = useState<boolean>(false);
+  const [hydratedUser, setHydratedUser] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
     if (user?.login) {
       const saved = loadCuratedProjects(user.login);
-      if (saved.length > 0) {
-        setCuratedProjects(saved);
-      }
+      // Replace previous in-memory curation with loaded account data (even if empty [])
+      setCuratedProjects(saved);
+      setHydratedUser(user.login);
     }
   }, [user?.login]);
 
   useEffect(() => {
-    if (mounted && user?.login) {
+    // Prevent save effect from executing until hydration for current user completes
+    if (mounted && user?.login && hydratedUser === user.login) {
       saveCuratedProjects(user.login, curatedProjects);
     }
-  }, [curatedProjects, mounted, user?.login]);
+  }, [curatedProjects, mounted, user?.login, hydratedUser]);
 
   const curatedRepoIds = new Set(curatedProjects.map((p) => p.repoId));
 

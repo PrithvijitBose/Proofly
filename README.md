@@ -45,6 +45,9 @@ python -m uvicorn app.main:app --reload --port 8000
 cd frontend
 npm install
 npm run dev
+
+# Run automated unit & component tests:
+npm test
 ```
 - **Frontend Web App**: `http://localhost:3000`
 

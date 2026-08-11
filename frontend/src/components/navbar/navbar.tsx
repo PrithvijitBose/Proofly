@@ -44,6 +44,9 @@ export function Navbar({ user }: NavbarProps) {
 
         {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-8 text-xs font-mono text-slate-400">
+          <Link href="/projects" className="hover:text-proof-cyan transition-colors flex items-center gap-1.5 text-proof-cyan font-bold">
+            <span className="text-proof-cyan">$</span> proof.projects()
+          </Link>
           <Link href="/journey" className="hover:text-proof-cyan transition-colors flex items-center gap-1.5 text-proof-amber font-bold">
             <Sparkles className="h-3.5 w-3.5 text-proof-amber" /> proof.journey()
           </Link>
@@ -101,6 +104,13 @@ export function Navbar({ user }: NavbarProps) {
       {/* Mobile Navigation Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-proof-border bg-proof-obsidian/95 p-4 space-y-3 font-mono text-xs backdrop-blur-xl">
+          <Link
+            href="/projects"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block py-2 text-proof-cyan hover:text-white transition-colors font-bold"
+          >
+            <span className="text-proof-cyan">$</span> proof.projects()
+          </Link>
           <Link
             href="/journey"
             onClick={() => setMobileMenuOpen(false)}

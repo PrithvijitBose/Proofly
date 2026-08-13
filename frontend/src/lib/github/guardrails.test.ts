@@ -110,8 +110,10 @@ describe("verifyNarrative", () => {
 
     expect(result.droppedClaimCount).toBe(1);
     expect(result.verifiedClaimCount).toBe(0);
-    expect(result.chapters[0].claims).toEqual([]);
     expect(result.dropReasons.some((r) => r.includes("shares no content"))).toBe(true);
+    // nothing grounded survived → chapter replaced by the deterministic summary
+    expect(result.chapters[0].deterministic).toBe(true);
+    expect(result.chapters[0].claims[0].text).toBe(fixturePatterns()[0].statement);
   });
 
   it("drops claims citing unknown evidence ids and records why", () => {
@@ -149,7 +151,8 @@ describe("verifyNarrative", () => {
 
     expect(result.droppedClaimCount).toBe(0);
     expect(result.verifiedClaimCount).toBe(0);
-    expect(result.chapters[0].claims[0].verified).toBe(false);
+    // the only claim was flagged → chapter replaced by the deterministic summary
+    expect(result.chapters[0].deterministic).toBe(true);
   });
 
   it("flags repo names not present in the cited evidence", () => {
@@ -166,7 +169,7 @@ describe("verifyNarrative", () => {
       fixturePatterns()
     );
 
-    expect(result.chapters[0].claims[0].verified).toBe(false);
+    expect(result.chapters[0].deterministic).toBe(true);
   });
 
   it("flags languages that are not present in the cited evidence", () => {
@@ -176,14 +179,16 @@ describe("verifyNarrative", () => {
           index: 1,
           title: "t",
           kicker: "k",
-          claims: [{ text: "Everything was written in Go.", evidenceIds: ["l1"] }],
+          // shares the "typescript" token with l1 (so not dropped as
+          // fabrication) but "go" is nowhere in the cited evidence
+          claims: [{ text: "Rewrote the TypeScript tooling in Go.", evidenceIds: ["l1"] }],
         },
       ]),
       fixtureEvidence(),
       fixturePatterns()
     );
 
-    expect(result.chapters[0].claims[0].verified).toBe(false);
+    expect(result.chapters[0].deterministic).toBe(true);
   });
 
   it("flags years that do not appear in the cited evidence", () => {
@@ -201,7 +206,7 @@ describe("verifyNarrative", () => {
       fixturePatterns()
     );
 
-    expect(result.chapters[0].claims[0].verified).toBe(false);
+    expect(result.chapters[0].deterministic).toBe(true);
   });
 
   it("replaces a chapter with zero verified claims using deterministic PatternFacts", () => {

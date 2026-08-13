@@ -53,10 +53,16 @@ export async function POST(request: NextRequest) {
     !Array.isArray(body.evidence) ||
     !Array.isArray(body.warnings) ||
     !body.narrative ||
-    typeof body.narrative !== "object"
+    typeof body.narrative !== "object" ||
+    Array.isArray(body.narrative) ||
+    !Array.isArray((body.narrative as { chapters?: unknown }).chapters)
   ) {
     return NextResponse.json(
-      { error: "invalid_body", message: "Expected repos, patterns, narrative, evidence and warnings." },
+      {
+        error: "invalid_body",
+        message:
+          "Expected repos, patterns, evidence and warnings arrays, and a narrative object with a chapters array.",
+      },
       { status: 400 }
     );
   }

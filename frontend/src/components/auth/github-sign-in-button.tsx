@@ -11,17 +11,19 @@ export function GitHubSignInButton({
   className,
   showPatOption = true,
   hasExistingPat,
+  wrapperClassName,
 }: {
   label?: string;
   callbackUrl?: string;
   className?: string;
   showPatOption?: boolean;
   hasExistingPat?: boolean;
+  wrapperClassName?: string;
 }) {
   const [patModalOpen, setPatModalOpen] = useState(false);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-2">
+    <div className={wrapperClassName ?? "flex flex-col sm:flex-row items-center gap-2"}>
       <button
         type="button"
         onClick={() => signIn("github", { callbackUrl })}
@@ -41,7 +43,7 @@ export function GitHubSignInButton({
           <button
             type="button"
             onClick={() => setPatModalOpen(true)}
-            className="inline-flex items-center gap-1 text-xs font-mono text-slate-400 hover:text-proof-amber transition-colors px-2 py-1"
+            className="inline-flex items-center gap-1 text-xs font-mono text-slate-400 hover:text-proof-amber transition-colors px-2 py-1 whitespace-nowrap"
             title="Use custom GitHub Personal Access Token (Option B)"
           >
             <Key className="h-3 w-3 text-proof-amber" />

@@ -50,18 +50,6 @@ export function Navbar({ user }: NavbarProps) {
           <Link href="/journey" className="hover:text-proof-cyan transition-colors flex items-center gap-1.5 text-proof-amber font-bold">
             <Sparkles className="h-3.5 w-3.5 text-proof-amber" /> proof.journey()
           </Link>
-          <Link href="#live-demo" className="hover:text-proof-cyan transition-colors flex items-center gap-1.5">
-            <span className="text-proof-amber">$</span> proof.preview()
-          </Link>
-          <Link href="#features" className="hover:text-proof-cyan transition-colors flex items-center gap-1.5">
-            <span className="text-proof-amber">$</span> proof.pillars()
-          </Link>
-          <Link href="#how-it-works" className="hover:text-proof-cyan transition-colors flex items-center gap-1.5">
-            <span className="text-proof-amber">$</span> proof.lifecycle()
-          </Link>
-          <Link href="#system-status" className="hover:text-proof-cyan transition-colors flex items-center gap-1.5">
-            <span className="text-proof-emerald">●</span> telemetry
-          </Link>
         </nav>
 
         {/* Auth Controls (Desktop) */}
@@ -79,7 +67,11 @@ export function Navbar({ user }: NavbarProps) {
               <GitHubSignOutButton />
             </>
           ) : (
-            <GitHubSignInButton label="AUTHENTICATE GITHUB" className="inline-flex items-center justify-center gap-2 rounded-lg bg-proof-amber px-4 py-2 text-xs font-mono font-bold text-black shadow-lg shadow-proof-amber/20 hover:bg-amber-300 transition-all" />
+            <GitHubSignInButton 
+              label="AUTHENTICATE GITHUB" 
+              wrapperClassName="flex flex-row items-center gap-2"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-proof-amber px-4 py-2 text-xs font-mono font-bold text-black shadow-lg shadow-proof-amber/20 hover:bg-amber-300 transition-all" 
+            />
           )}
         </div>
 
@@ -88,7 +80,11 @@ export function Navbar({ user }: NavbarProps) {
           {user ? (
             <GitHubSignOutButton />
           ) : (
-            <GitHubSignInButton label="AUTH" className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-proof-amber px-3 py-1.5 text-xs font-mono font-bold text-black shadow-lg shadow-proof-amber/20 hover:bg-amber-300 transition-all" />
+            <GitHubSignInButton 
+              label="AUTH" 
+              wrapperClassName="flex flex-row items-center gap-2"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-proof-amber px-3 py-1.5 text-xs font-mono font-bold text-black shadow-lg shadow-proof-amber/20 hover:bg-amber-300 transition-all" 
+            />
           )}
 
           <button
@@ -117,34 +113,6 @@ export function Navbar({ user }: NavbarProps) {
             className="block py-2 text-proof-amber hover:text-proof-cyan transition-colors font-bold"
           >
             <Sparkles className="h-3.5 w-3.5 inline mr-1 text-proof-amber" /> proof.journey()
-          </Link>
-          <Link
-            href="#live-demo"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-slate-300 hover:text-proof-cyan transition-colors"
-          >
-            <span className="text-proof-amber">$</span> proof.preview()
-          </Link>
-          <Link
-            href="#features"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-slate-300 hover:text-proof-cyan transition-colors"
-          >
-            <span className="text-proof-amber">$</span> proof.pillars()
-          </Link>
-          <Link
-            href="#how-it-works"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-slate-300 hover:text-proof-cyan transition-colors"
-          >
-            <span className="text-proof-amber">$</span> proof.lifecycle()
-          </Link>
-          <Link
-            href="#system-status"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-2 text-slate-300 hover:text-proof-cyan transition-colors"
-          >
-            <span className="text-proof-emerald">●</span> telemetry
           </Link>
         </div>
       )}

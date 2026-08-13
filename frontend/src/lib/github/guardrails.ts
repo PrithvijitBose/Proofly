@@ -134,8 +134,11 @@ function verifyClaim(claim: NarrativeClaim, byId: Map<string, EvidenceRecord>): 
 
   // Rule 4: repo mentions (owner/name) must be among the cited repos.
   const citedRepos = new Set(records.map((record) => record.repoFullName));
-  const repoMentions = claim.text.match(/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/g) ?? [];
+  const knownOwners = new Set([...citedRepos].map((full) => full.split("/")[0].toLowerCase()));
+  const repoMentions = claim.text.match(/\b[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\b/g) ?? [];
   for (const mention of repoMentions) {
+    // Only judge mentions that look like GitHub repos owned by a cited owner.
+    if (!knownOwners.has(mention.split("/")[0].toLowerCase())) continue;
     if (!citedRepos.has(mention)) {
       problems.push(`repo ${mention} does not appear in the cited evidence`);
     }
@@ -153,6 +156,7 @@ function verifyClaim(claim: NarrativeClaim, byId: Map<string, EvidenceRecord>): 
   const claimLower = claim.text.toLowerCase();
   const claimTokensLower = new Set(claimLower.split(/[^a-z0-9+]+/));
   for (const language of KNOWN_LANGUAGES) {
+    if (language.length < 4) continue; // "c", "r", "go", "php" are too ambiguous in prose
     if (claimTokensLower.has(language) && !citedLanguages.has(language)) {
       problems.push(`language ${language} does not appear in the cited evidence`);
     }

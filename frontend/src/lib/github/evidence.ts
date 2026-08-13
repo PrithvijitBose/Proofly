@@ -8,7 +8,7 @@
  * what lets guardrails resolve claim citations against the full store.
  */
 
-import type { GitHubCommit, GitHubIssue, GitHubPullRequest } from "./client";
+import type { GitHubCommit, GitHubEvent, GitHubIssue, GitHubPullRequest } from "./client";
 
 export type EvidenceSource = "commit" | "pull_request" | "issue" | "event" | "language";
 
@@ -118,6 +118,104 @@ export function normalizeIssue(
       state: issue.state,
       authorLogin: issue.user?.login ?? null,
     },
+    fetchedAt,
+  };
+}
+
+function eventRepoFullName(event: GitHubEvent): string {
+  return event.repo?.name ?? "unknown";
+}
+
+function eventUrl(event: GitHubEvent): string {
+  const repo = eventRepoFullName(event);
+  if (event.payload?.pull_request?.html_url) return event.payload.pull_request.html_url;
+  if (event.payload?.issue?.html_url) return event.payload.issue.html_url;
+  if (event.payload?.commits?.[0]?.url) return event.payload.commits[0].url;
+  return `https://github.com/${repo}`;
+}
+
+function eventTitle(event: GitHubEvent): string {
+  const repo = eventRepoFullName(event);
+  const short = repo.split("/")[1] ?? repo;
+  const payload = event.payload ?? {};
+  switch (event.type) {
+    case "PushEvent": {
+      const n = payload.commits?.length ?? 1;
+      return `Pushed ${n} commit${n === 1 ? "" : "s"} to ${short}`;
+    }
+    case "PullRequestEvent":
+      return payload.pull_request
+        ? `PR #${payload.pull_request.number}: ${payload.pull_request.title}`
+        : `Pull request activity on ${short}`;
+    case "IssuesEvent":
+      return payload.issue
+        ? `Issue #${payload.issue.number}: ${payload.issue.title}`
+        : `Issue activity on ${short}`;
+    case "CreateEvent":
+      return payload.ref_type && payload.ref
+        ? `Created ${payload.ref_type} ${payload.ref} in ${short}`
+        : `Created ${short}`;
+    case "WatchEvent":
+      return `Starred ${short}`;
+    case "ForkEvent":
+      return `Forked ${short}`;
+    default:
+      return `${event.type.replace(/Event$/, "") || "Activity"} on ${short}`;
+  }
+}
+
+function eventDetail(event: GitHubEvent): string | null {
+  if (event.type === "PushEvent") {
+    const first = event.payload?.commits?.[0]?.message;
+    return first ? truncate(first.trim(), DETAIL_MAX_LENGTH) : null;
+  }
+  return null;
+}
+
+/** Normalizes a GitHub user event into an EvidenceRecord. */
+export function normalizeEvent(event: GitHubEvent, fetchedAt: string): EvidenceRecord {
+  const repoFullName = eventRepoFullName(event);
+  return {
+    id: evidenceId("event", repoFullName, event.id),
+    source: "event",
+    repoFullName,
+    url: eventUrl(event),
+    title: truncate(eventTitle(event), TITLE_MAX_LENGTH),
+    detail: eventDetail(event),
+    date: event.created_at,
+    meta: {
+      type: event.type,
+      eventId: event.id,
+      action: event.payload?.action ?? null,
+    },
+    fetchedAt,
+  };
+}
+
+/**
+ * Normalizes a repository language map into a single EvidenceRecord with
+ * the full byte counts in `meta`. Returns null when the repo has no
+ * detectable languages (nothing to say — no fabrication).
+ */
+export function normalizeLanguage(
+  languages: Record<string, number>,
+  repoFullName: string,
+  date: string,
+  fetchedAt: string
+): EvidenceRecord | null {
+  const entries = Object.entries(languages);
+  if (entries.length === 0) return null;
+  const totalBytes = entries.reduce((sum, [, bytes]) => sum + bytes, 0);
+  const top = entries.sort((a, b) => b[1] - a[1])[0][0];
+  return {
+    id: evidenceId("language", repoFullName, "languages"),
+    source: "language",
+    repoFullName,
+    url: `https://github.com/${repoFullName}`,
+    title: `${top} in ${repoFullName}`,
+    detail: null,
+    date,
+    meta: { languages, totalBytes },
     fetchedAt,
   };
 }

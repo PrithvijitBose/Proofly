@@ -8,11 +8,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchRepoCommits,
   fetchRepoIssues,
+  fetchRepoLanguages,
   fetchRepoPulls,
+  fetchUserEvents,
   GitHubApiError,
 } from "./client";
-import type { GitHubCommit, GitHubIssue, GitHubPullRequest } from "./client";
-import { normalizeCommit, normalizeIssue, normalizePullRequest, truncate, evidenceId } from "./evidence";
+import type { GitHubCommit, GitHubEvent, GitHubIssue, GitHubPullRequest } from "./client";
+import {
+  normalizeCommit,
+  normalizeEvent,
+  normalizeIssue,
+  normalizeLanguage,
+  normalizePullRequest,
+  truncate,
+  evidenceId,
+} from "./evidence";
 import { gatherEvidence } from "./gather";
 import type { CuratedProject } from "./curation";
 
@@ -69,6 +79,22 @@ function rawIssue(overrides: Partial<GitHubIssue> = {}): GitHubIssue {
     updated_at: "2025-04-01T10:00:00Z",
     body: "We should normalize commits into evidence records.",
     user: { login: "userA", id: 1, avatar_url: "", html_url: "" },
+    ...overrides,
+  };
+}
+
+function rawEvent(overrides: Partial<GitHubEvent> = {}): GitHubEvent {
+  return {
+    id: "evt-1",
+    type: "PushEvent",
+    created_at: "2025-05-01T10:00:00Z",
+    repo: { id: 1, name: "userA/repo-a", url: "https://api.github.com/repos/userA/repo-a" },
+    actor: { login: "userA", id: 1, avatar_url: "", html_url: "" },
+    payload: {
+      commits: [
+        { sha: "abc", message: "Add event normalization", url: "https://github.com/userA/repo-a/commit/abc" },
+      ],
+    },
     ...overrides,
   };
 }
@@ -229,6 +255,115 @@ describe("normalizeIssue", () => {
   });
 });
 
+describe("normalizeEvent", () => {
+  it("normalizes a push event with a commit URL as provenance", () => {
+    const record = normalizeEvent(rawEvent(), FETCHED_AT);
+    expect(record.id).toBe("event:userA/repo-a:evt-1");
+    expect(record.source).toBe("event");
+    expect(record.url).toBe("https://github.com/userA/repo-a/commit/abc");
+    expect(record.title).toBe("Pushed 1 commit to repo-a");
+    expect(record.detail).toBe("Add event normalization");
+    expect(record.date).toBe("2025-05-01T10:00:00Z");
+    expect(record.meta.type).toBe("PushEvent");
+  });
+
+  it("pluralizes commit counts", () => {
+    const record = normalizeEvent(
+      rawEvent({
+        payload: {
+          commits: [
+            { sha: "a", message: "one", url: "https://x" },
+            { sha: "b", message: "two", url: "https://x" },
+          ],
+        },
+      }),
+      FETCHED_AT
+    );
+    expect(record.title).toBe("Pushed 2 commits to repo-a");
+  });
+
+  it("links pull request events to the PR URL", () => {
+    const record = normalizeEvent(
+      rawEvent({
+        type: "PullRequestEvent",
+        payload: {
+          action: "opened",
+          pull_request: { number: 9, title: "Add ingestion", html_url: "https://github.com/userA/repo-a/pull/9" },
+        },
+      }),
+      FETCHED_AT
+    );
+    expect(record.url).toBe("https://github.com/userA/repo-a/pull/9");
+    expect(record.title).toBe("PR #9: Add ingestion");
+  });
+
+  it("falls back to the repository page when no deeper URL exists", () => {
+    const record = normalizeEvent(
+      rawEvent({ type: "WatchEvent", payload: { commits: undefined } }),
+      FETCHED_AT
+    );
+    expect(record.url).toBe("https://github.com/userA/repo-a");
+    expect(record.title).toBe("Starred repo-a");
+  });
+});
+
+describe("normalizeLanguage", () => {
+  it("creates one record per repo with byte counts in meta", () => {
+    const record = normalizeLanguage({ TypeScript: 8000, Python: 2000 }, "userA/repo-a", "2025-06-01T00:00:00Z", FETCHED_AT);
+    expect(record).not.toBeNull();
+    expect(record!.id).toBe("language:userA/repo-a:languages");
+    expect(record!.source).toBe("language");
+    expect(record!.title).toBe("TypeScript in userA/repo-a");
+    expect(record!.date).toBe("2025-06-01T00:00:00Z");
+    expect(record!.meta.languages).toEqual({ TypeScript: 8000, Python: 2000 });
+    expect(record!.meta.totalBytes).toBe(10000);
+    expect(record!.url).toBe("https://github.com/userA/repo-a");
+  });
+
+  it("returns null for repos with no detectable languages (no fabrication)", () => {
+    expect(normalizeLanguage({}, "userA/repo-a", "", FETCHED_AT)).toBeNull();
+  });
+});
+
+describe("fetchUserEvents", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("paginates 30 events per page and stops at a short page", async () => {
+    const page = Array.from({ length: 30 }, (_, i) => rawEvent({ id: `evt-${i}` }));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => page })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => [rawEvent({ id: "evt-last" })] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const events = await fetchUserEvents("token", "userA", 10);
+    expect(events).toHaveLength(31);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [url] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
+    expect(url.href).toContain("/users/userA/events/public");
+    expect(url.searchParams.get("per_page")).toBe("30");
+  });
+
+  it("caps at maxPages pages", async () => {
+    const page = Array.from({ length: 30 }, (_, i) => rawEvent({ id: `evt-${i}` }));
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => page });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const events = await fetchUserEvents("token", "userA", 3);
+    expect(events).toHaveLength(90);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("fetchRepoLanguages", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("returns the raw byte-count map", async () => {
+    mockFetch(200, { TypeScript: 8000, Python: 2000 });
+    const languages = await fetchRepoLanguages("token", "userA", "repo-a");
+    expect(languages).toEqual({ TypeScript: 8000, Python: 2000 });
+  });
+});
+
 describe("fetchRepoPulls", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -319,13 +454,48 @@ describe("gatherEvidence", () => {
       "/commits": [rawCommit()],
       "/pulls": [rawPull()],
       "/issues": [rawIssue()],
+      "/languages": { TypeScript: 8000 },
+      "/events": [rawEvent()],
     });
     const result = await gatherEvidence("token", "userA", [project("userA/repo-a")], FETCHED_AT);
 
-    expect(result.evidence).toHaveLength(3);
-    expect(result.evidence.map((e) => e.source).sort()).toEqual(["commit", "issue", "pull_request"]);
+    const sources = result.evidence.map((e) => e.source).sort();
+    expect(sources).toEqual(["commit", "event", "issue", "language", "pull_request"]);
     expect(result.evidence.every((e) => e.repoFullName === "userA/repo-a")).toBe(true);
     expect(result.warnings).toEqual([]);
+  });
+
+  it("carries byte counts on language records and provenance URLs on all records", async () => {
+    mockGitHubFetch({
+      "/commits": [rawCommit()],
+      "/pulls": [],
+      "/issues": [],
+      "/languages": { TypeScript: 8000, Python: 2000 },
+      "/events": [rawEvent()],
+    });
+    const result = await gatherEvidence("token", "userA", [project("userA/repo-a")], FETCHED_AT);
+
+    const language = result.evidence.find((e) => e.source === "language");
+    expect(language?.meta.languages).toEqual({ TypeScript: 8000, Python: 2000 });
+    expect(language?.meta.totalBytes).toBe(10000);
+    for (const record of result.evidence) {
+      expect(record.url).toMatch(/^https:\/\/github\.com\//);
+    }
+  });
+
+  it("scopes user events to curated repositories only", async () => {
+    mockGitHubFetch({
+      "/commits": [],
+      "/pulls": [],
+      "/issues": [],
+      "/languages": {},
+      "/events": [
+        rawEvent({ id: "evt-curated" }),
+        rawEvent({ id: "evt-other", repo: { id: 2, name: "someone/else", url: "" } }),
+      ],
+    });
+    const result = await gatherEvidence("token", "userA", [project("userA/repo-a")], FETCHED_AT);
+    expect(result.evidence.map((e) => e.id)).toEqual(["event:userA/repo-a:evt-curated"]);
   });
 
   it("contributes zero records (and no errors) for repos with no authored activity", async () => {
@@ -359,11 +529,111 @@ describe("gatherEvidence", () => {
     expect(result.warnings[0]).toContain("pull requests");
   });
 
-  it("caps the number of curated repos processed (3 requests per repo)", async () => {
+  it("stops scheduling work once the request budget is exhausted (partial evidence + warning, no crash)", async () => {
+    mockGitHubFetch({});
+    const result = await gatherEvidence("token", "userA", [project("userA/repo-a")], FETCHED_AT, {
+      requestBudget: 2,
+      concurrency: 1,
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(result.warnings.some((w) => w.startsWith("GitHub request budget"))).toBe(true);
+  });
+
+  it("retries exactly once on 403/429 honoring Retry-After", async () => {
+    vi.useFakeTimers();
+    try {
+      const commitAttempts = { count: 0 };
+      const fn = vi.fn().mockImplementation(async (input: URL | string) => {
+        const url = typeof input === "string" ? new URL(input) : input;
+        if (url.pathname.includes("/commits")) {
+          commitAttempts.count += 1;
+          if (commitAttempts.count === 1) {
+            return {
+              ok: false,
+              status: 429,
+              headers: { get: (name: string) => (name === "retry-after" ? "1" : null) },
+              json: async () => ({}),
+            };
+          }
+          return { ok: true, status: 200, headers: { get: () => null }, json: async () => [rawCommit()] };
+        }
+        if (url.pathname.includes("/pulls")) return { ok: true, status: 200, headers: { get: () => null }, json: async () => [rawPull()] };
+        if (url.pathname.includes("/issues")) return { ok: true, status: 200, headers: { get: () => null }, json: async () => [rawIssue()] };
+        if (url.pathname.includes("/languages")) return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ TypeScript: 8000 }) };
+        return { ok: true, status: 200, headers: { get: () => null }, json: async () => [] };
+      });
+      vi.stubGlobal("fetch", fn);
+
+      const pending = gatherEvidence("token", "userA", [project("userA/repo-a")], FETCHED_AT, {
+        concurrency: 1,
+      });
+      await vi.advanceTimersByTimeAsync(2000);
+      const result = await pending;
+
+      expect(commitAttempts.count).toBe(2); // 1 attempt + 1 retry
+      expect(result.evidence.some((e) => e.source === "commit")).toBe(true);
+      expect(result.warnings).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not retry when Retry-After exceeds the tolerable window", async () => {
+    vi.useFakeTimers();
+    try {
+      const fn = vi.fn().mockImplementation(async (input: URL | string) => {
+        const url = typeof input === "string" ? new URL(input) : input;
+        if (url.pathname.includes("/commits")) {
+          return {
+            ok: false,
+            status: 403,
+            headers: { get: (name: string) => (name === "retry-after" ? "60" : null) },
+            json: async () => ({}),
+          };
+        }
+        if (url.pathname.includes("/pulls")) return { ok: true, status: 200, headers: { get: () => null }, json: async () => [rawPull()] };
+        if (url.pathname.includes("/issues")) return { ok: true, status: 200, headers: { get: () => null }, json: async () => [rawIssue()] };
+        if (url.pathname.includes("/languages")) return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ TypeScript: 8000 }) };
+        return { ok: true, status: 200, headers: { get: () => null }, json: async () => [] };
+      });
+      vi.stubGlobal("fetch", fn);
+
+      const pending = gatherEvidence("token", "userA", [project("userA/repo-a")], FETCHED_AT, {
+        concurrency: 1,
+      });
+      await vi.advanceTimersByTimeAsync(2000);
+      const result = await pending;
+
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0]).toContain("commits for userA/repo-a");
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("caps the total evidence records", async () => {
+    mockGitHubFetch({
+      "/commits": Array.from({ length: 5 }, (_, i) => rawCommit({ sha: `sha${i}` })),
+      "/pulls": [],
+      "/issues": [],
+      "/languages": {},
+      "/events": [],
+    });
+    const result = await gatherEvidence("token", "userA", [project("userA/repo-a")], FETCHED_AT, {
+      maxEvidenceRecords: 3,
+      concurrency: 1,
+    });
+    expect(result.evidence).toHaveLength(3);
+    expect(result.warnings.some((w) => w.startsWith("Evidence record cap"))).toBe(true);
+  });
+
+  it("caps the number of curated repos processed (4 requests + events per pass)", async () => {
     mockGitHubFetch({});
     const projects = Array.from({ length: 12 }, (_, i) => project(`userA/repo-${i}`));
     const result = await gatherEvidence("token", "userA", projects, FETCHED_AT);
-    expect(fetch).toHaveBeenCalledTimes(30); // 10 repos × 3 endpoints
+    expect(fetch).toHaveBeenCalledTimes(41); // 10 repos × 4 endpoints + 1 events
     expect(result.warnings.some((w) => w.includes("10"))).toBe(true);
   });
 });

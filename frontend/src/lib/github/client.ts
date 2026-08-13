@@ -87,7 +87,9 @@ export class GitHubApiError extends Error {
   constructor(
     public status: number,
     message: string,
-    public rateLimit: boolean = false
+    public rateLimit: boolean = false,
+    /** Seconds GitHub asked us to wait (Retry-After header), when present. */
+    public retryAfterSeconds?: number
   ) {
     super(message);
     this.name = "GitHubApiError";
@@ -125,7 +127,14 @@ async function ghRequest<T>(path: string, opts: RequestOptions = {}): Promise<T>
       : response.status === 401
         ? "GitHub access token is invalid or expired. Sign in again."
         : `GitHub API request failed with status ${response.status}.`;
-    throw new GitHubApiError(response.status, message, rateLimited);
+    const retryAfterRaw = response.headers?.get?.("retry-after");
+    const retryAfterSeconds = retryAfterRaw ? Number(retryAfterRaw) : undefined;
+    throw new GitHubApiError(
+      response.status,
+      message,
+      rateLimited,
+      retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : undefined
+    );
   }
 
   return response.json() as Promise<T>;
@@ -245,4 +254,56 @@ export async function fetchRepoIssues(
     page += 1;
   }
   return issues.slice(0, cap).filter((issue) => !issue.pull_request);
+}
+
+export interface GitHubEventPayload {
+  ref?: string | null;
+  ref_type?: string | null;
+  action?: string | null;
+  commits?: Array<{ sha: string; message: string; url: string }>;
+  pull_request?: { number: number; title: string; html_url: string };
+  issue?: { number: number; title: string; html_url: string };
+}
+
+export interface GitHubEvent {
+  id: string;
+  type: string;
+  created_at: string;
+  repo: { id: number; name: string; url: string };
+  actor: { login: string; id: number; avatar_url: string; html_url: string };
+  payload: GitHubEventPayload;
+}
+
+/**
+ * Public events for a user (30 per page), newest first, capped at
+ * `maxPages` pages (default 10 → 300 events).
+ */
+export async function fetchUserEvents(
+  token: string,
+  login: string,
+  maxPages = 10
+): Promise<GitHubEvent[]> {
+  const events: GitHubEvent[] = [];
+  let page = 1;
+  while (page <= maxPages) {
+    const batch = await ghRequest<GitHubEvent[]>(
+      `/users/${encodeURIComponent(login)}/events/public`,
+      { token, perPage: 30, page }
+    );
+    events.push(...batch);
+    if (batch.length < 30) break;
+    page += 1;
+  }
+  return events;
+}
+
+/**
+ * Byte counts per language for a repository (e.g. { TypeScript: 1234 }).
+ */
+export async function fetchRepoLanguages(
+  token: string,
+  owner: string,
+  repo: string
+): Promise<Record<string, number>> {
+  return ghRequest<Record<string, number>>(`/repos/${owner}/${repo}/languages`, { token });
 }

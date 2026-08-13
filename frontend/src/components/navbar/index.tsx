@@ -1,5 +1,7 @@
 import { auth } from "@/auth";
 import { Navbar as NavbarClient } from "./navbar";
+import { getPatToken } from "@/lib/auth/pat-token";
+import { getAuthenticatedUser } from "@/lib/github/client";
 
 /**
  * Server wrapper: loads the session server-side and passes only safe user
@@ -8,13 +10,29 @@ import { Navbar as NavbarClient } from "./navbar";
  */
 export async function Navbar() {
   const session = await auth();
-  const user = session?.user
+  let user = session?.user
     ? {
         name: session.user.name ?? null,
         login: session.user.login,
         avatar: session.user.avatar,
       }
     : null;
+
+  if (!user) {
+    const patToken = await getPatToken();
+    if (patToken) {
+      try {
+        const ghUser = await getAuthenticatedUser(patToken);
+        user = {
+          name: ghUser.name ?? null,
+          login: ghUser.login,
+          avatar: ghUser.avatar_url,
+        };
+      } catch {
+        // Stale or invalid PAT
+      }
+    }
+  }
 
   return <NavbarClient user={user} />;
 }

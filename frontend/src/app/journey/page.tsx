@@ -9,8 +9,21 @@ export const dynamic = "force-dynamic";
 
 export default async function JourneyPage() {
   const session = await auth();
-  const user = session?.user;
+  let user = session?.user;
   const accessToken = await getGitHubAccessToken();
+
+  if (!user && accessToken) {
+    try {
+      const ghUser = await getAuthenticatedUser(accessToken);
+      user = {
+        name: ghUser.name ?? null,
+        login: ghUser.login,
+        avatar: ghUser.avatar_url,
+      } as any;
+    } catch {
+      // Invalid PAT
+    }
+  }
 
   if (!user || !user.login || !accessToken) {
     return (

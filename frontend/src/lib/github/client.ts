@@ -37,6 +37,25 @@ export interface GitHubRepo {
   html_url: string;
 }
 
+export interface GitHubCommitAuthor {
+  login: string;
+  id: number;
+  avatar_url: string;
+  html_url: string;
+}
+
+export interface GitHubCommit {
+  sha: string;
+  html_url: string;
+  commit: {
+    message: string;
+    author: { name: string; email: string; date: string };
+    committer: { name: string; email: string; date: string };
+  };
+  author: GitHubCommitAuthor | null;
+  committer: GitHubCommitAuthor | null;
+}
+
 export class GitHubApiError extends Error {
   constructor(
     public status: number,
@@ -112,4 +131,33 @@ export async function fetchOwnedRepos(token: string): Promise<GitHubRepo[]> {
     page += 1;
   }
   return repos;
+}
+
+/**
+ * Commits authored by `author` in a repository, newest first.
+ * Paginates 100 per page until the cap or a short page. The `author`
+ * filter is applied server-side by GitHub, so repos where the user has
+ * zero authored commits return an empty array — never an error.
+ */
+export async function fetchRepoCommits(
+  token: string,
+  owner: string,
+  repo: string,
+  author: string,
+  cap = 100
+): Promise<GitHubCommit[]> {
+  const commits: GitHubCommit[] = [];
+  const perPage = 100;
+  const maxPages = Math.ceil(cap / perPage);
+  let page = 1;
+  while (page <= maxPages) {
+    const batch = await ghRequest<GitHubCommit[]>(
+      `/repos/${owner}/${repo}/commits?author=${encodeURIComponent(author)}`,
+      { token, perPage, page }
+    );
+    commits.push(...batch);
+    if (batch.length < perPage) break;
+    page += 1;
+  }
+  return commits.slice(0, cap);
 }

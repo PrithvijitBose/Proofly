@@ -215,11 +215,8 @@ export function verifyNarrative(
       }
     }
 
-    const verifiedInChapter = claims.filter((claim) => claim.verified).length;
-    if (verifiedInChapter === 0) {
-      // Nothing grounded survived (all claims dropped or all flagged) —
-      // replace the whole chapter so the user always receives
-      // evidence-derived content.
+    if (claims.length === 0 && patterns.length > 0) {
+      // Every claim was dropped — fall back to evidence-derived content.
       chapters.push(buildEvidenceSummaryChapter(chapter.index, patterns));
     } else {
       chapters.push({ ...chapter, claims });

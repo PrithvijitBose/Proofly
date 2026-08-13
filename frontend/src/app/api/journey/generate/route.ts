@@ -6,6 +6,7 @@ import { gatherEvidence, MAX_CURATED_REPOS } from "@/lib/github/gather";
 import { analyzePatterns } from "@/lib/github/patterns";
 import { buildContextPack } from "@/lib/github/context-pack";
 import { AiJourneyError, generateAiNarrative, validateClaimsAgainstEvidence } from "@/lib/github/ai-journey";
+import { verifyNarrative } from "@/lib/github/guardrails";
 import type { CuratedProject } from "@/lib/github/curation";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,8 @@ const REPO_NAME_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
  * and GitHub token never leave the server.
  *
  * Responses:
- *   200 { user, repos, narrative, evidence, patterns, warnings }
+ *   200 { user, repos, narrative: GuardedNarrative, evidence, patterns, warnings }
+ *       — every claim verified/filtered by the guardrail pass
  *   502 narrative: null (AI failure / schema-invalid output — caller falls
  *       back to the deterministic story, never raw LLM text)
  *   503 narrative: null + error "llm_not_configured" (no MISTRAL_API_KEY)
@@ -111,10 +113,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Guardrail pass: deterministic verification of every claim against
+      // the FULL evidence store (unknown ids / fabrication → dropped,
+      // numeric/entity mismatches → flagged). The response carries the
+      // verified flags the UI renders.
+      const guarded = verifyNarrative(narrative, gathered.evidence, patterns);
+
       return NextResponse.json({
         user,
         repos,
-        narrative,
+        narrative: guarded,
         evidence: gathered.evidence,
         patterns,
         warnings: gathered.warnings,

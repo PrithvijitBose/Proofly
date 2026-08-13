@@ -32,7 +32,7 @@ interface JourneyFlowProps {
 }
 
 export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
-  const [status, setStatus] = useState<FlowStatus>("checking");
+  const [status, setStatus] = useState<FlowStatus>("loading");
   const [narrative, setNarrative] = useState<GuardedNarrative | null>(null);
   const [evidence, setEvidence] = useState<EvidenceRecord[]>([]);
   const [patterns, setPatterns] = useState<PatternFact[]>([]);

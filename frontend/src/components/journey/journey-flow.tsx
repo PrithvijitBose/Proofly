@@ -7,8 +7,11 @@ import type { GitHubUser } from "@/lib/github/client";
 import type { JourneyStory } from "@/lib/github/journey";
 import type { GuardedNarrative } from "@/lib/github/guardrails";
 import type { EvidenceRecord } from "@/lib/github/evidence";
+import type { PatternFact } from "@/lib/github/patterns";
+import type { CuratedProject } from "@/lib/github/curation";
 import { loadCuratedProjects } from "@/lib/github/curation";
 import { Narrative } from "./narrative";
+import { EvidencePanel } from "./evidence-panel";
 import { Button } from "@/components/ui/button";
 
 type FlowStatus = "checking" | "empty" | "loading" | "ready" | "degraded" | "error";
@@ -16,7 +19,9 @@ type FlowStatus = "checking" | "empty" | "loading" | "ready" | "degraded" | "err
 interface GenerateResponse {
   narrative: GuardedNarrative | null;
   evidence?: EvidenceRecord[];
+  patterns?: PatternFact[];
   warnings?: string[];
+  repos?: CuratedProject[];
   error?: string;
   message?: string;
 }
@@ -30,6 +35,9 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
   const [status, setStatus] = useState<FlowStatus>("checking");
   const [narrative, setNarrative] = useState<GuardedNarrative | null>(null);
   const [evidence, setEvidence] = useState<EvidenceRecord[]>([]);
+  const [patterns, setPatterns] = useState<PatternFact[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [generatedRepos, setGeneratedRepos] = useState<CuratedProject[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
 
@@ -52,6 +60,9 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       if (res.ok && data.narrative) {
         setNarrative(data.narrative);
         setEvidence(data.evidence ?? []);
+        setPatterns(data.patterns ?? []);
+        setWarnings(data.warnings ?? []);
+        setGeneratedRepos(data.repos ?? []);
         setStatus("ready");
       } else if (res.status === 401) {
         setMessage("Your GitHub session expired. Reconnect GitHub and try again.");
@@ -149,7 +160,19 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       )}
 
       {/* Guardrailed AI narrative */}
-      {status === "ready" && narrative && <Narrative narrative={narrative} evidence={evidence} />}
+      {status === "ready" && narrative && (
+        <>
+          <Narrative narrative={narrative} evidence={evidence} />
+          <EvidencePanel
+            user={user}
+            repos={generatedRepos}
+            patterns={patterns}
+            narrative={narrative}
+            evidence={evidence}
+            warnings={warnings}
+          />
+        </>
+      )}
     </div>
   );
 }

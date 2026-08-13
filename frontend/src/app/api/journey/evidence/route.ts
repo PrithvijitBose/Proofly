@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { getGitHubAccessToken } from "@/lib/auth/github-token";
 import { getAuthenticatedUser, GitHubApiError } from "@/lib/github/client";
 import type { CuratedProject } from "@/lib/github/curation";
-import { gatherCommitEvidence, MAX_CURATED_REPOS } from "@/lib/github/gather";
+import { gatherEvidence, MAX_CURATED_REPOS } from "@/lib/github/gather";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
   try {
     const [user, gathered] = await Promise.all([
       getAuthenticatedUser(token),
-      gatherCommitEvidence(token, login, repos, new Date().toISOString()),
+      gatherEvidence(token, login, repos, new Date().toISOString()),
     ]);
     return NextResponse.json({
       user,

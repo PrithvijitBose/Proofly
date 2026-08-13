@@ -8,7 +8,7 @@
  * what lets guardrails resolve claim citations against the full store.
  */
 
-import type { GitHubCommit } from "./client";
+import type { GitHubCommit, GitHubIssue, GitHubPullRequest } from "./client";
 
 export type EvidenceSource = "commit" | "pull_request" | "issue" | "event" | "language";
 
@@ -69,6 +69,54 @@ export function normalizeCommit(
       authorLogin: commit.author?.login ?? null,
       authorName: commit.commit?.author?.name ?? null,
       message: truncate(fullMessage, MESSAGE_MAX_LENGTH),
+    },
+    fetchedAt,
+  };
+}
+
+/** Normalizes raw GitHub pull request JSON into an EvidenceRecord. */
+export function normalizePullRequest(
+  pr: GitHubPullRequest,
+  repoFullName: string,
+  fetchedAt: string
+): EvidenceRecord {
+  return {
+    id: evidenceId("pull_request", repoFullName, String(pr.number)),
+    source: "pull_request",
+    repoFullName,
+    url: pr.html_url,
+    title: truncate((pr.title ?? "").trim(), TITLE_MAX_LENGTH),
+    detail: pr.body ? truncate(pr.body, DETAIL_MAX_LENGTH) : null,
+    date: pr.created_at,
+    meta: {
+      number: pr.number,
+      state: pr.state,
+      merged: Boolean(pr.merged_at),
+      mergedAt: pr.merged_at,
+      authorLogin: pr.user?.login ?? null,
+    },
+    fetchedAt,
+  };
+}
+
+/** Normalizes raw GitHub issue JSON into an EvidenceRecord. */
+export function normalizeIssue(
+  issue: GitHubIssue,
+  repoFullName: string,
+  fetchedAt: string
+): EvidenceRecord {
+  return {
+    id: evidenceId("issue", repoFullName, String(issue.number)),
+    source: "issue",
+    repoFullName,
+    url: issue.html_url,
+    title: truncate((issue.title ?? "").trim(), TITLE_MAX_LENGTH),
+    detail: issue.body ? truncate(issue.body, DETAIL_MAX_LENGTH) : null,
+    date: issue.created_at,
+    meta: {
+      number: issue.number,
+      state: issue.state,
+      authorLogin: issue.user?.login ?? null,
     },
     fetchedAt,
   };

@@ -1,18 +1,21 @@
 /**
  * Evidence gatherer: turns curated repositories into evidence records.
  *
- * Task 1.1 scope: commits only. Extended in later tasks with PRs, issues,
- * user events and repository languages. The gatherer never fabricates —
- * a repo with zero authored commits simply contributes zero records.
+ * Sources: commits, pull requests, issues (Task 1.2), plus user events and
+ * repository languages (Task 1.3). The gatherer never fabricates — a repo
+ * with zero authored activity simply contributes zero records, and per-repo
+ * failures degrade into warnings with partial evidence, never a hard crash.
  */
 
-import { fetchRepoCommits, GitHubApiError } from "./client";
+import { fetchRepoCommits, fetchRepoIssues, fetchRepoPulls, GitHubApiError } from "./client";
 import type { CuratedProject } from "./curation";
-import { normalizeCommit } from "./evidence";
+import { normalizeCommit, normalizeIssue, normalizePullRequest } from "./evidence";
 import type { EvidenceRecord } from "./evidence";
 
 export const MAX_CURATED_REPOS = 10;
 export const MAX_COMMITS_PER_REPO = 100;
+export const MAX_PULLS_PER_REPO = 100;
+export const MAX_ISSUES_PER_REPO = 100;
 
 export interface GatherResult {
   evidence: EvidenceRecord[];
@@ -26,11 +29,11 @@ function splitRepoFullName(fullName: string): [string, string] | null {
 }
 
 /**
- * Gathers commit evidence for the given curated repositories, sequentially.
- * Per-repo failures degrade into warnings — one bad repo never fails the
- * whole gathering pass.
+ * Gathers commit, pull request and issue evidence for the given curated
+ * repositories, sequentially. Each endpoint failure produces a warning and
+ * the records gathered so far are preserved (partial-evidence degradation).
  */
-export async function gatherCommitEvidence(
+export async function gatherEvidence(
   token: string,
   login: string,
   projects: CuratedProject[],
@@ -52,25 +55,47 @@ export async function gatherCommitEvidence(
       continue;
     }
     const [owner, repo] = parts;
+
+    // Commits
     try {
-      const commits = await fetchRepoCommits(
-        token,
-        owner,
-        repo,
-        login,
-        MAX_COMMITS_PER_REPO
-      );
+      const commits = await fetchRepoCommits(token, owner, repo, login, MAX_COMMITS_PER_REPO);
       for (const commit of commits) {
         evidence.push(normalizeCommit(commit, project.fullName, fetchedAt));
       }
     } catch (err) {
       warnings.push(
-        `Could not read commits for ${project.fullName}: ${
-          err instanceof GitHubApiError ? err.message : "unknown error"
-        }`
+        `Could not read commits for ${project.fullName}: ${describeError(err)}`
+      );
+    }
+
+    // Pull requests
+    try {
+      const pulls = await fetchRepoPulls(token, owner, repo, login, MAX_PULLS_PER_REPO);
+      for (const pr of pulls) {
+        evidence.push(normalizePullRequest(pr, project.fullName, fetchedAt));
+      }
+    } catch (err) {
+      warnings.push(
+        `Could not read pull requests for ${project.fullName}: ${describeError(err)}`
+      );
+    }
+
+    // Issues (entries that are pull requests are excluded by the client)
+    try {
+      const issues = await fetchRepoIssues(token, owner, repo, login, MAX_ISSUES_PER_REPO);
+      for (const issue of issues) {
+        evidence.push(normalizeIssue(issue, project.fullName, fetchedAt));
+      }
+    } catch (err) {
+      warnings.push(
+        `Could not read issues for ${project.fullName}: ${describeError(err)}`
       );
     }
   }
 
   return { evidence, warnings };
+}
+
+function describeError(err: unknown): string {
+  return err instanceof GitHubApiError ? err.message : "unknown error";
 }

@@ -56,6 +56,33 @@ export interface GitHubCommit {
   committer: GitHubCommitAuthor | null;
 }
 
+export interface GitHubPullRequest {
+  id: number;
+  number: number;
+  state: "open" | "closed";
+  title: string;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  merged_at: string | null;
+  body: string | null;
+  user: GitHubCommitAuthor | null;
+}
+
+export interface GitHubIssue {
+  id: number;
+  number: number;
+  state: "open" | "closed";
+  title: string;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  body: string | null;
+  user: GitHubCommitAuthor | null;
+  /** Present when this entry is actually a pull request (GitHub's issue endpoint returns both). */
+  pull_request?: { url: string; html_url: string; diff_url: string; patch_url: string };
+}
+
 export class GitHubApiError extends Error {
   constructor(
     public status: number,
@@ -160,4 +187,62 @@ export async function fetchRepoCommits(
     page += 1;
   }
   return commits.slice(0, cap);
+}
+
+/**
+ * Pull requests for a repository, newest first, capped at `cap` items.
+ * GitHub's pulls endpoint has no `author` filter, so the author filter is
+ * applied client-side. Repos with zero authored PRs return an empty array.
+ */
+export async function fetchRepoPulls(
+  token: string,
+  owner: string,
+  repo: string,
+  author: string,
+  cap = 100
+): Promise<GitHubPullRequest[]> {
+  const pulls: GitHubPullRequest[] = [];
+  const perPage = 100;
+  const maxPages = Math.ceil(cap / perPage);
+  let page = 1;
+  while (page <= maxPages) {
+    const batch = await ghRequest<GitHubPullRequest[]>(`/repos/${owner}/${repo}/pulls?state=all`, {
+      token,
+      perPage,
+      page,
+    });
+    pulls.push(...batch);
+    if (batch.length < perPage) break;
+    page += 1;
+  }
+  return pulls.slice(0, cap).filter((pr) => pr.user?.login === author);
+}
+
+/**
+ * Issues opened by `author` in a repository, newest first, capped at `cap`.
+ * The `creator` filter is applied server-side by GitHub. Entries that are
+ * actually pull requests (GitHub's issues endpoint returns both) are
+ * excluded so nothing is double-counted against the pulls endpoint.
+ */
+export async function fetchRepoIssues(
+  token: string,
+  owner: string,
+  repo: string,
+  author: string,
+  cap = 100
+): Promise<GitHubIssue[]> {
+  const issues: GitHubIssue[] = [];
+  const perPage = 100;
+  const maxPages = Math.ceil(cap / perPage);
+  let page = 1;
+  while (page <= maxPages) {
+    const batch = await ghRequest<GitHubIssue[]>(
+      `/repos/${owner}/${repo}/issues?state=all&creator=${encodeURIComponent(author)}`,
+      { token, perPage, page }
+    );
+    issues.push(...batch);
+    if (batch.length < perPage) break;
+    page += 1;
+  }
+  return issues.slice(0, cap).filter((issue) => !issue.pull_request);
 }

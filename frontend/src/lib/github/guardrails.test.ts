@@ -151,8 +151,11 @@ describe("verifyNarrative", () => {
 
     expect(result.droppedClaimCount).toBe(0);
     expect(result.verifiedClaimCount).toBe(0);
-    // the only claim was flagged → chapter replaced by the deterministic summary
-    expect(result.chapters[0].deterministic).toBe(true);
+    // Flagged claims survive unverified with a reason — the chapter is NOT replaced.
+    expect(result.chapters[0].deterministic).toBeUndefined();
+    const [flagged] = result.chapters[0].claims;
+    expect(flagged.verified).toBe(false);
+    expect(flagged.flagged!.some((r) => r.includes("number 3"))).toBe(true);
   });
 
   it("flags repo names not present in the cited evidence", () => {
@@ -169,7 +172,13 @@ describe("verifyNarrative", () => {
       fixturePatterns()
     );
 
-    expect(result.chapters[0].deterministic).toBe(true);
+    // Flagged claims survive unverified with a reason — the chapter is NOT replaced.
+    expect(result.chapters[0].deterministic).toBeUndefined();
+    const [flagged] = result.chapters[0].claims;
+    expect(flagged.verified).toBe(false);
+    expect(flagged.flagged!.some((r) => r.includes("repo userA/other-repo"))).toBe(true);
+    expect(result.verifiedClaimCount).toBe(0);
+    expect(result.droppedClaimCount).toBe(0);
   });
 
   it("flags languages that are not present in the cited evidence", () => {
@@ -180,15 +189,23 @@ describe("verifyNarrative", () => {
           title: "t",
           kicker: "k",
           // shares the "typescript" token with l1 (so not dropped as
-          // fabrication) but "go" is nowhere in the cited evidence
-          claims: [{ text: "Rewrote the TypeScript tooling in Go.", evidenceIds: ["l1"] }],
+          // fabrication) but "rust" is nowhere in the cited evidence.
+          // (Sub-4-char names like "go" are deliberately skipped as too
+          // ambiguous in prose — see guardrails.ts.)
+          claims: [{ text: "Rewrote the TypeScript tooling in Rust.", evidenceIds: ["l1"] }],
         },
       ]),
       fixtureEvidence(),
       fixturePatterns()
     );
 
-    expect(result.chapters[0].deterministic).toBe(true);
+    // Flagged claims survive unverified with a reason — the chapter is NOT replaced.
+    expect(result.chapters[0].deterministic).toBeUndefined();
+    const [flagged] = result.chapters[0].claims;
+    expect(flagged.verified).toBe(false);
+    expect(flagged.flagged!.some((r) => r.includes("language rust"))).toBe(true);
+    expect(result.verifiedClaimCount).toBe(0);
+    expect(result.droppedClaimCount).toBe(0);
   });
 
   it("flags years that do not appear in the cited evidence", () => {
@@ -206,7 +223,13 @@ describe("verifyNarrative", () => {
       fixturePatterns()
     );
 
-    expect(result.chapters[0].deterministic).toBe(true);
+    // Flagged claims survive unverified with a reason — the chapter is NOT replaced.
+    expect(result.chapters[0].deterministic).toBeUndefined();
+    const [flagged] = result.chapters[0].claims;
+    expect(flagged.verified).toBe(false);
+    expect(flagged.flagged!.some((r) => r.includes("year 2024"))).toBe(true);
+    expect(result.verifiedClaimCount).toBe(0);
+    expect(result.droppedClaimCount).toBe(0);
   });
 
   it("replaces a chapter with zero verified claims using deterministic PatternFacts", () => {

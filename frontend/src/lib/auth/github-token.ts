@@ -20,7 +20,6 @@ export async function getGitHubAccessToken(): Promise<string | null> {
   try {
     const pat = await getPatToken();
     if (pat) {
-      console.log("[getGitHubAccessToken] Using PAT token:", pat.slice(0, 8) + "...");
       return pat;
     }
   } catch {
@@ -31,13 +30,11 @@ export async function getGitHubAccessToken(): Promise<string | null> {
   try {
     const session = await auth();
     if (session?.accessToken) {
-      console.log("[getGitHubAccessToken] Using OAuth token from NextAuth session");
       return session.accessToken;
     }
   } catch {
     // auth() can throw when OAuth provider is not configured (no GITHUB_ID/SECRET).
     // This is expected for contributors — fall through silently.
-    console.log("[getGitHubAccessToken] auth() unavailable (OAuth likely not configured)");
   }
 
   // ── 3. Direct JWT cookie decryption (edge-case fallback) ──────────────
@@ -140,4 +137,4 @@ export async function getAuthenticatedSessionOrPat(): Promise<ResolvedAuth | nul
   }
 
   return null;
-}
+}

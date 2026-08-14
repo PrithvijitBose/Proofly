@@ -107,9 +107,14 @@ export async function fetchOwnedRepos(token: string): Promise<GitHubRepo[]> {
       perPage: 100,
       page,
     });
+    console.log(`[fetchOwnedRepos] Page ${page} fetched ${batch.length} repos`);
     repos.push(...batch);
     if (batch.length < 100) break;
     page += 1;
+  }
+  console.log(`[fetchOwnedRepos] Total fetched repos: ${repos.length}`);
+  if (repos.length > 0) {
+    console.log(`[fetchOwnedRepos] Repo names:`, repos.map(r => `${r.name} (fork: ${r.fork}, archived: ${r.archived})`));
   }
   return repos;
 }

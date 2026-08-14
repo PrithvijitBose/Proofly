@@ -6,22 +6,41 @@ import { getPatToken } from "./pat-token";
 /**
  * Server-only: returns the GitHub access token.
  *
- * Checks `session.accessToken` via `auth()` first for clean 100% reliable server-side
- * retrieval. If not present on session, attempts server-side JWT cookie decryption,
- * falling back to custom PAT token cookie.
+ * Resolution order:
+ *   1. Custom Personal Access Token (PAT) cookie — lets contributors
+ *      override OAuth and work without registering a GitHub OAuth App.
+ *   2. Auth.js session (`auth()`) — standard OAuth flow.
+ *   3. Direct JWT cookie decryption — fallback for edge cases.
+ *
+ * Every step is wrapped in try/catch so a missing OAuth configuration
+ * (contributor dev environment) never crashes the calling page.
  */
 export async function getGitHubAccessToken(): Promise<string | null> {
-  // 1. Try NextAuth session access token directly
+  // ── 1. PAT cookie (highest priority — contributor override) ───────────
+  try {
+    const pat = await getPatToken();
+    if (pat) {
+      console.log("[getGitHubAccessToken] Using PAT token:", pat.slice(0, 8) + "...");
+      return pat;
+    }
+  } catch {
+    // Cookie read failed — continue to OAuth fallback
+  }
+
+  // ── 2. Auth.js session access token (OAuth flow) ──────────────────────
   try {
     const session = await auth();
     if (session?.accessToken) {
+      console.log("[getGitHubAccessToken] Using OAuth token from NextAuth session");
       return session.accessToken;
     }
   } catch {
-    // Ignore error
+    // auth() can throw when OAuth provider is not configured (no GITHUB_ID/SECRET).
+    // This is expected for contributors — fall through silently.
+    console.log("[getGitHubAccessToken] auth() unavailable (OAuth likely not configured)");
   }
 
-  // 2. Try reading access token from Auth.js JWT cookie on server
+  // ── 3. Direct JWT cookie decryption (edge-case fallback) ──────────────
   try {
     const cookieStore = await cookies();
     const cookieList = cookieStore.getAll();
@@ -54,9 +73,13 @@ export async function getGitHubAccessToken(): Promise<string | null> {
       }
     }
   } catch {
-    // Fall through to PAT
+    // JWT decryption can fail when AUTH_SECRET is missing or cookie is stale
   }
 
-  // 3. Fallback to custom Personal Access Token (PAT)
-  return getPatToken();
+  // ── 4. Final PAT fallback (in case cookie read raced earlier) ─────────
+  try {
+    return await getPatToken();
+  } catch {
+    return null;
+  }
 }

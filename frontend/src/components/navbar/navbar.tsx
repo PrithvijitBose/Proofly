@@ -17,9 +17,11 @@ export interface NavbarUser {
 interface NavbarProps {
   /** Safe user fields from the server session; null when signed out. */
   user?: NavbarUser | null;
+  /** Whether GitHub OAuth credentials are configured on the server. */
+  oauthConfigured?: boolean;
 }
 
-export function Navbar({ user }: NavbarProps) {
+export function Navbar({ user, oauthConfigured }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -70,7 +72,8 @@ export function Navbar({ user }: NavbarProps) {
             <GitHubSignInButton 
               label="AUTHENTICATE GITHUB" 
               wrapperClassName="flex flex-row items-center gap-2"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-proof-amber px-4 py-2 text-xs font-mono font-bold text-black shadow-lg shadow-proof-amber/20 hover:bg-amber-300 transition-all" 
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-proof-amber px-4 py-2 text-xs font-mono font-bold text-black shadow-lg shadow-proof-amber/20 hover:bg-amber-300 transition-all"
+              oauthConfigured={oauthConfigured}
             />
           )}
         </div>
@@ -83,7 +86,8 @@ export function Navbar({ user }: NavbarProps) {
             <GitHubSignInButton 
               label="AUTH" 
               wrapperClassName="flex flex-row items-center gap-2"
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-proof-amber px-3 py-1.5 text-xs font-mono font-bold text-black shadow-lg shadow-proof-amber/20 hover:bg-amber-300 transition-all" 
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-proof-amber px-3 py-1.5 text-xs font-mono font-bold text-black shadow-lg shadow-proof-amber/20 hover:bg-amber-300 transition-all"
+              oauthConfigured={oauthConfigured}
             />
           )}
 

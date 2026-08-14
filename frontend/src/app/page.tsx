@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +40,25 @@ export default function Home() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [connectModalOpen, setConnectModalOpen] = useState<boolean>(false);
+  const [patRedirectBanner, setPatRedirectBanner] = useState<string | null>(null);
+
+  const searchParams = useSearchParams();
+
+  // Auto-open PAT modal when redirected from auth callback (?auth=pat)
+  useEffect(() => {
+    if (searchParams.get("auth") === "pat") {
+      setConnectModalOpen(true);
+      const message = searchParams.get("message");
+      if (message) {
+        setPatRedirectBanner(message);
+      }
+      // Clean up the URL without reloading
+      const url = new URL(window.location.href);
+      url.searchParams.delete("auth");
+      url.searchParams.delete("message");
+      window.history.replaceState({}, "", url.pathname);
+    }
+  }, [searchParams]);
 
   const checkHealth = async () => {
     setLoading(true);
@@ -60,6 +80,24 @@ export default function Home() {
 
   return (
     <div className="relative overflow-hidden bg-grid-pattern pb-24">
+      {/* Contributor PAT redirect banner */}
+      {patRedirectBanner && (
+        <div className="w-full border-b border-amber-500/30 bg-amber-950/40 py-3 px-4">
+          <div className="mx-auto max-w-7xl flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-amber-200 font-mono">
+              <Key className="h-3.5 w-3.5 text-proof-amber shrink-0" />
+              <span>{patRedirectBanner} Click <strong className="text-proof-amber">"Use PAT"</strong> below to sign in.</span>
+            </div>
+            <button
+              onClick={() => setPatRedirectBanner(null)}
+              className="text-amber-400/60 hover:text-amber-200 transition-colors text-xs shrink-0"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Monospaced Live Commit Stream Ticker */}
       <div className="w-full border-b border-proof-border bg-proof-obsidian/90 py-2.5 overflow-hidden font-mono text-xs text-proof-ash">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">

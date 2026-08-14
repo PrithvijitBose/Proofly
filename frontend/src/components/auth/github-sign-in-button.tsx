@@ -3,7 +3,23 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { PatSignInModal } from "./pat-sign-in-modal";
-import { Key } from "lucide-react";
+import { Key, AlertTriangle } from "lucide-react";
+
+/**
+ * Detects whether GitHub OAuth credentials are available at build time
+ * by checking NEXT_PUBLIC env vars or falling back to a runtime check.
+ * Contributors without OAuth App credentials will see PAT as the primary
+ * sign-in method instead of getting a "Server error" crash.
+ */
+function useOAuthAvailable(): boolean {
+  // NEXT_PUBLIC_OAUTH_CONFIGURED is an optional build-time flag.
+  // When not present, we assume OAuth IS configured (production default).
+  if (typeof window !== "undefined") {
+    const flag = (window as Record<string, unknown>).__PROOFLY_OAUTH_CONFIGURED__;
+    if (flag !== undefined) return Boolean(flag);
+  }
+  return true; // Assume OAuth works until proven otherwise at runtime
+}
 
 export function GitHubSignInButton({
   label = "Connect GitHub",
@@ -12,6 +28,7 @@ export function GitHubSignInButton({
   showPatOption = true,
   hasExistingPat,
   wrapperClassName,
+  oauthConfigured,
 }: {
   label?: string;
   callbackUrl?: string;
@@ -19,14 +36,30 @@ export function GitHubSignInButton({
   showPatOption?: boolean;
   hasExistingPat?: boolean;
   wrapperClassName?: string;
+  /** Server-side prop: pass false when OAuth credentials are missing. */
+  oauthConfigured?: boolean;
 }) {
   const [patModalOpen, setPatModalOpen] = useState(false);
+  const [oauthError, setOauthError] = useState(false);
+
+  const clientOAuthAvailable = useOAuthAvailable();
+  const oauthReady = oauthConfigured ?? clientOAuthAvailable;
+
+  const handleOAuthClick = () => {
+    if (!oauthReady) {
+      // OAuth is not configured — open PAT modal instead of crashing
+      setOauthError(true);
+      setPatModalOpen(true);
+      return;
+    }
+    signIn("github", { callbackUrl });
+  };
 
   return (
     <div className={wrapperClassName ?? "flex flex-col sm:flex-row items-center gap-2"}>
       <button
         type="button"
-        onClick={() => signIn("github", { callbackUrl })}
+        onClick={handleOAuthClick}
         className={
           className ??
           "inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-md shadow-primary/20 transition-all hover:bg-primary/90 active:scale-[0.98]"
@@ -42,22 +75,37 @@ export function GitHubSignInButton({
         <>
           <button
             type="button"
-            onClick={() => setPatModalOpen(true)}
-            className="inline-flex items-center gap-1 text-xs font-mono text-slate-400 hover:text-proof-amber transition-colors px-2 py-1 whitespace-nowrap"
-            title="Use custom GitHub Personal Access Token (Option B)"
+            onClick={() => {
+              setOauthError(false);
+              setPatModalOpen(true);
+            }}
+            className={
+              !oauthReady
+                ? "inline-flex items-center gap-1.5 text-xs font-mono text-proof-amber hover:text-amber-300 transition-colors px-2 py-1.5 whitespace-nowrap border border-proof-amber/30 rounded-md bg-proof-amber/5"
+                : "inline-flex items-center gap-1 text-xs font-mono text-slate-400 hover:text-proof-amber transition-colors px-2 py-1 whitespace-nowrap"
+            }
+            title={
+              !oauthReady
+                ? "OAuth is not configured — use a Personal Access Token to authenticate"
+                : "Use custom GitHub Personal Access Token (Option B)"
+            }
           >
             <Key className="h-3 w-3 text-proof-amber" />
-            <span>Use PAT</span>
+            <span>{!oauthReady ? "Use PAT (Contributor)" : "Use PAT"}</span>
           </button>
 
           <PatSignInModal
             isOpen={patModalOpen}
-            onClose={() => setPatModalOpen(false)}
+            onClose={() => {
+              setPatModalOpen(false);
+              setOauthError(false);
+            }}
             hasExistingPat={hasExistingPat}
             callbackUrl={callbackUrl}
+            showOAuthWarning={oauthError}
           />
         </>
       )}
     </div>
   );
-}
+}

@@ -145,11 +145,11 @@ describe("EvidencePanel", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:mock");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-    let clickedAnchor: HTMLAnchorElement | null = null;
+    const clicked: { anchor?: HTMLAnchorElement } = {};
     const clickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(function (this: HTMLAnchorElement) {
-        clickedAnchor = this;
+        clicked.anchor = this;
       });
 
     panel([commitRecord]);
@@ -165,8 +165,8 @@ describe("EvidencePanel", () => {
     expect(body.evidence).toHaveLength(1);
 
     expect(clickSpy).toHaveBeenCalled();
-    expect(clickedAnchor?.download).toBe("proofly-journey-userA.json");
-    expect(clickedAnchor?.href).toBe("blob:mock");
+    expect(clicked.anchor?.download).toBe("proofly-journey-userA.json");
+    expect(clicked.anchor?.href).toBe("blob:mock");
   });
 
   it("surfaces export errors", async () => {

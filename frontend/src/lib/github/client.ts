@@ -224,7 +224,7 @@ export async function fetchRepoPulls(
     if (batch.length < perPage) break;
     page += 1;
   }
-  return pulls.slice(0, cap).filter((pr) => pr.user?.login === author);
+  return pulls.filter((pr) => pr.user?.login === author).slice(0, cap);
 }
 
 /**
@@ -253,7 +253,7 @@ export async function fetchRepoIssues(
     if (batch.length < perPage) break;
     page += 1;
   }
-  return issues.slice(0, cap).filter((issue) => !issue.pull_request);
+  return issues.filter((issue) => !issue.pull_request).slice(0, cap);
 }
 
 export interface GitHubEventPayload {

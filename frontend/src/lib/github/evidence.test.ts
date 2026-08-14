@@ -377,6 +377,18 @@ describe("fetchRepoPulls", () => {
     expect(pulls[0].number).toBe(42);
   });
 
+  it("filters by author before capping results when leading entries belong to another author", async () => {
+    mockFetch(200, [
+      rawPull({ number: 1, user: { login: "otherAuthor", id: 2, avatar_url: "", html_url: "" } }),
+      rawPull({ number: 2, user: { login: "otherAuthor", id: 2, avatar_url: "", html_url: "" } }),
+      rawPull({ number: 3, user: { login: "userA", id: 1, avatar_url: "", html_url: "" } }),
+      rawPull({ number: 4, user: { login: "userA", id: 1, avatar_url: "", html_url: "" } }),
+    ]);
+    const pulls = await fetchRepoPulls("token", "userA", "repo-a", "userA", 1);
+    expect(pulls).toHaveLength(1);
+    expect(pulls[0].number).toBe(3);
+  });
+
   it("requests state=all with per_page=100", async () => {
     mockFetch(200, []);
     await fetchRepoPulls("token", "userA", "repo-a", "userA", 100);
@@ -409,6 +421,18 @@ describe("fetchRepoIssues", () => {
     // The PR-shaped entry is excluded — no double-counting against the pulls endpoint.
     expect(issues).toHaveLength(1);
     expect(issues[0].number).toBe(41);
+  });
+
+  it("filters out pull requests before capping results when leading entries are pull requests", async () => {
+    mockFetch(200, [
+      { ...rawIssue({ number: 1 }), pull_request: { url: "", html_url: "", diff_url: "", patch_url: "" } },
+      { ...rawIssue({ number: 2 }), pull_request: { url: "", html_url: "", diff_url: "", patch_url: "" } },
+      rawIssue({ number: 3 }),
+      rawIssue({ number: 4 }),
+    ]);
+    const issues = await fetchRepoIssues("token", "userA", "repo-a", "userA", 1);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].number).toBe(3);
   });
 
   it("returns an empty array for repos with no authored issues", async () => {

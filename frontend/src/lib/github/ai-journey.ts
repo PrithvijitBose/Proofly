@@ -87,16 +87,36 @@ export function buildSystemPrompt(): string {
   ].join("\n");
 }
 
+export const MAX_PROMPT_STATEMENT_LENGTH = 500;
+export const MAX_PROMPT_TITLE_LENGTH = 300;
+export const MAX_PROMPT_DETAIL_LENGTH = 1000;
+export const MAX_PROMPT_META_LENGTH = 2000;
+
+/** Sanitizes untrusted repository fields by neutralizing closing tag delimiters and bounding length. */
+export function sanitizePromptField(text: string, maxLength: number): string {
+  const neutralized = text
+    .replace(/<\/\s*patterns\s*>/gi, "&lt;/patterns&gt;")
+    .replace(/<\/\s*evidence\s*>/gi, "&lt;/evidence&gt;");
+  if (neutralized.length <= maxLength) return neutralized;
+  return `${neutralized.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
 /** User prompt: patterns + evidence pack, clearly delimited as data. */
 export function buildUserPrompt(pack: ContextPack): string {
   const patterns = pack.patterns
-    .map((p) => `- [${p.id}] ${p.label}: ${p.statement} (evidence: ${p.evidenceIds.join(", ")})`)
+    .map((p) => {
+      const sanitizedStatement = sanitizePromptField(p.statement, MAX_PROMPT_STATEMENT_LENGTH);
+      const sanitizedLabel = sanitizePromptField(p.label, 100);
+      return `- [${p.id}] ${sanitizedLabel}: ${sanitizedStatement} (evidence: ${p.evidenceIds.join(", ")})`;
+    })
     .join("\n");
 
   const evidence = pack.evidencePack
     .map((e) => {
-      const meta = JSON.stringify(e.meta);
-      return `- ${e.id} | source=${e.source} | repo=${e.repoFullName} | date=${e.date} | title=${e.title} | detail=${e.detail ?? ""} | url=${e.url} | meta=${meta}`;
+      const meta = sanitizePromptField(JSON.stringify(e.meta ?? {}), MAX_PROMPT_META_LENGTH);
+      const title = sanitizePromptField(e.title, MAX_PROMPT_TITLE_LENGTH);
+      const detail = e.detail ? sanitizePromptField(e.detail, MAX_PROMPT_DETAIL_LENGTH) : "";
+      return `- ${e.id} | source=${e.source} | repo=${e.repoFullName} | date=${e.date} | title=${title} | detail=${detail} | url=${e.url} | meta=${meta}`;
     })
     .join("\n");
 
@@ -233,7 +253,7 @@ export async function generateAiNarrative(pack: ContextPack, apiKey: string): Pr
     return narrative;
   } catch (err) {
     if (err instanceof AiJourneyError) throw err;
-    if (err instanceof Error && err.name === "AbortError") {
+    if (typeof err === "object" && err !== null && "name" in err && (err as { name?: unknown }).name === "AbortError") {
       throw new AiJourneyError("The AI request timed out. Try again.");
     }
     throw new AiJourneyError("The AI request failed unexpectedly.");

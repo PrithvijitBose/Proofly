@@ -64,7 +64,7 @@ function parseDate(iso: string | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function prettyDate(iso: string): string {
+function prettyDate(iso: string | null | undefined): string {
   const d = parseDate(iso);
   return d ? `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}` : "A while ago";
 }
@@ -97,12 +97,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Build the journey story for a user from their owned, non-fork repos. */
 export function buildJourneyStory(user: GitHubUser, allRepos: GitHubRepo[]): JourneyStory {
-  const repos = allRepos
-    .filter((r) => !r.fork && !r.archived)
+  const repos = allRepos.filter((r) => !r.fork && !r.archived);
+
+  const datedRepos = repos
+    .filter((r) => parseDate(r.created_at) !== null)
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
 
-  const oldest = repos[0] ?? null;
-  const newest = repos[repos.length - 1] ?? null;
+  const oldest = datedRepos[0] ?? repos[0] ?? null;
+  const newest = datedRepos[datedRepos.length - 1] ?? repos[repos.length - 1] ?? null;
   const topStarred = [...repos].sort((a, b) => b.stargazers_count - a.stargazers_count)[0] ?? null;
 
   const totalStars = repos.reduce((s, r) => s + r.stargazers_count, 0);
@@ -115,10 +117,14 @@ export function buildJourneyStory(user: GitHubUser, allRepos: GitHubRepo[]): Jou
 
   // Guarded against invalid dates: curated projects without a stored
   // createdAt surface as 0 years, not "NaN years".
-  const rawYears = oldest ? Math.ceil((Date.now() - new Date(oldest.created_at).getTime()) / (365.25 * DAY_MS)) : 0;
-  const yearsActive = Number.isFinite(rawYears) ? Math.max(1, rawYears) : 0;
+  const oldestDate = oldest ? parseDate(oldest.created_at) : null;
+  const rawYears = oldestDate ? Math.ceil((Date.now() - oldestDate.getTime()) / (365.25 * DAY_MS)) : 0;
+  const yearsActive = oldestDate && Number.isFinite(rawYears) ? Math.max(1, rawYears) : 0;
 
-  const recentlyPushed = repos.filter((r) => new Date(r.pushed_at).getTime() > Date.now() - 90 * DAY_MS).length;
+  const recentlyPushed = repos.filter((r) => {
+    const d = parseDate(r.pushed_at);
+    return d !== null && d.getTime() > Date.now() - 90 * DAY_MS;
+  }).length;
 
   const chapters: Chapter[] = [];
   const timeline: TimelineItem[] = [];
@@ -154,9 +160,12 @@ export function buildJourneyStory(user: GitHubUser, allRepos: GitHubRepo[]): Jou
 
   // Chapter 1 — the beginning
   {
-    const firstYearCount = repos.filter(
-      (r) => new Date(r.created_at).getUTCFullYear() === new Date(oldest.created_at).getUTCFullYear()
-    ).length;
+    const firstYearCount = oldestDate
+      ? repos.filter((r) => {
+          const d = parseDate(r.created_at);
+          return d !== null && d.getUTCFullYear() === oldestDate.getUTCFullYear();
+        }).length
+      : 0;
 
     const paragraphs: string[] = [
       `Every journey starts somewhere, and ${possessive(user.login)} public history starts with ${describeRepo(oldest)} — created in ${prettyDate(oldest.created_at)}.`,

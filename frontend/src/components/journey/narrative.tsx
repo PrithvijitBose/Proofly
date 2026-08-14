@@ -64,7 +64,7 @@ export function Narrative({ narrative, evidence, isApproved, savedAt, onEdit }: 
                 AI-Generated Draft
               </span>
             )}
-            {savedAt && isApproved && (
+            {savedAt && isApproved && !Number.isNaN(new Date(savedAt).getTime()) && (
               <span className="text-[11px] text-muted-foreground">
                 Saved {new Date(savedAt).toLocaleDateString()}
               </span>

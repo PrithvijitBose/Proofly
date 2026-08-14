@@ -91,7 +91,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const filename = `proofly-journey-${login}.json`;
+  const safeLogin = login.replace(/[^A-Za-z0-9._-]/g, "-") || "user";
+  const filename = `proofly-journey-${safeLogin}.json`;
   return new NextResponse(JSON.stringify(bundle, null, 2), {
     status: 200,
     headers: {

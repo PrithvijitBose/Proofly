@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ShieldAlert, FileText, ExternalLink } from "lucide-react";
+import { CheckCircle2, ShieldAlert, FileText, ExternalLink, Award, Edit3 } from "lucide-react";
 import type { GuardedNarrative } from "@/lib/github/guardrails";
 import type { EvidenceRecord } from "@/lib/github/evidence";
 
@@ -10,6 +10,9 @@ export const MAX_CITATION_CHIPS = 5;
 interface NarrativeProps {
   narrative: GuardedNarrative;
   evidence: EvidenceRecord[];
+  isApproved?: boolean;
+  savedAt?: string;
+  onEdit?: () => void;
 }
 
 /** Short human label for an evidence record's citation chip. */
@@ -34,7 +37,7 @@ export function citationLabel(record: EvidenceRecord): string {
   }
 }
 
-export function Narrative({ narrative, evidence }: NarrativeProps) {
+export function Narrative({ narrative, evidence, isApproved, savedAt, onEdit }: NarrativeProps) {
   const byId = new Map(evidence.map((record) => [record.id, record]));
 
   const citedIds = new Set<string>();
@@ -46,7 +49,40 @@ export function Narrative({ narrative, evidence }: NarrativeProps) {
   const citedRecordCount = [...citedIds].filter((id) => byId.has(id)).length;
 
   return (
-    <div>
+    <div className="space-y-6">
+      {/* Approval Status Header */}
+      {isApproved !== undefined && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/50 px-4 py-2.5 backdrop-blur-sm">
+          <div className="flex items-center gap-2">
+            {isApproved ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                <Award className="h-3.5 w-3.5" />
+                User-Approved Story
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                AI-Generated Draft
+              </span>
+            )}
+            {savedAt && isApproved && (
+              <span className="text-[11px] text-muted-foreground">
+                Saved {new Date(savedAt).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary transition-colors hover:text-primary/80 hover:underline"
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+              Edit Story
+            </button>
+          )}
+        </div>
+      )}
       {narrative.chapters.map((chapter) => (
         <article
           key={chapter.index}

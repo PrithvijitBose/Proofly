@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { getGitHubAccessToken } from "@/lib/auth/github-token";
+import { getAuthenticatedSessionOrPat } from "@/lib/auth/github-token";
 import { getAuthenticatedUser } from "@/lib/github/client";
 import { buildJourneyBundle } from "@/lib/github/export";
 import type { CuratedProject } from "@/lib/github/curation";
@@ -13,10 +12,8 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/journey/export
  *
- * Body: { repos, patterns, narrative, evidence, warnings } — the guarded
- * journey state the client is currently rendering. Deterministic: no LLM
- * call, works without MISTRAL_API_KEY. The server attaches the
- * authenticated user and verifies the bundle is self-contained (every
+ * Builds a machine-readable JSON export bundle of the user's journey.
+ * Validates integrity server-side (every curated repo must match and every
  * claim citation must resolve inside the exported evidence) before
  * responding with a downloadable attachment.
  *
@@ -27,12 +24,11 @@ export const dynamic = "force-dynamic";
  *   401 unauthenticated
  */
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  const login = session?.user?.login;
-  const token = await getGitHubAccessToken();
-  if (!login || !token) {
+  const authData = await getAuthenticatedSessionOrPat();
+  if (!authData) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const { login, token } = authData;
 
   let body: {
     repos?: unknown;

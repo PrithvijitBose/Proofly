@@ -83,3 +83,61 @@ export async function getGitHubAccessToken(): Promise<string | null> {
     return null;
   }
 }
+
+export interface ResolvedAuth {
+  token: string;
+  login: string;
+  user: {
+    name: string | null;
+    login: string;
+    avatar?: string;
+  };
+}
+
+/**
+ * Server-only: returns the authenticated user login and GitHub access token.
+ * Supports both OAuth (Auth.js session) and Personal Access Token (PAT cookie).
+ */
+export async function getAuthenticatedSessionOrPat(): Promise<ResolvedAuth | null> {
+  const token = await getGitHubAccessToken();
+  if (!token) return null;
+
+  // 1. NextAuth session (OAuth flow)
+  try {
+    const session = await auth();
+    if (session?.user?.login) {
+      return {
+        token,
+        login: session.user.login,
+        user: {
+          name: session.user.name ?? null,
+          login: session.user.login,
+          avatar: session.user.avatar,
+        },
+      };
+    }
+  } catch {
+    // Expected when OAuth is not configured
+  }
+
+  // 2. PAT fallback: query GitHub /user with the token
+  try {
+    const { getAuthenticatedUser } = await import("@/lib/github/client");
+    const ghUser = await getAuthenticatedUser(token);
+    if (ghUser?.login) {
+      return {
+        token,
+        login: ghUser.login,
+        user: {
+          name: ghUser.name ?? null,
+          login: ghUser.login,
+          avatar: ghUser.avatar_url,
+        },
+      };
+    }
+  } catch (err) {
+    console.error("[getAuthenticatedSessionOrPat] Failed to get user with token:", err);
+  }
+
+  return null;
+}

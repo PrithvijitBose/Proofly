@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, RefreshCw, ShieldAlert, Sparkles, BookmarkCheck } from "lucide-react";
+import { Loader2, RefreshCw, ShieldAlert, Sparkles, BookmarkCheck, CheckCircle, Edit3, Award, RotateCcw } from "lucide-react";
 import type { GitHubRepo, GitHubUser } from "@/lib/github/client";
 import { buildJourneyStory, type JourneyStory } from "@/lib/github/journey";
 import type { GuardedNarrative } from "@/lib/github/guardrails";
@@ -10,8 +10,16 @@ import type { EvidenceRecord } from "@/lib/github/evidence";
 import type { PatternFact } from "@/lib/github/patterns";
 import type { CuratedProject } from "@/lib/github/curation";
 import { loadCuratedProjects } from "@/lib/github/curation";
+import {
+  loadApprovedJourney,
+  saveApprovedJourney,
+  clearApprovedJourney,
+  type ApprovedJourney,
+} from "@/lib/github/custom-journey";
 import { Narrative } from "./narrative";
 import { EvidencePanel } from "./evidence-panel";
+import { JourneyCustomizer } from "./journey-customizer";
+import { NarrativeEditor } from "./narrative-editor";
 import { Button } from "@/components/ui/button";
 
 type FlowStatus = "checking" | "empty" | "loading" | "ready" | "degraded" | "error";
@@ -19,9 +27,7 @@ type FlowStatus = "checking" | "empty" | "loading" | "ready" | "degraded" | "err
 /**
  * Maps curated projects (client-side metadata) to the repo shape the
  * deterministic story builder expects, so the fallback story covers the
- * same curated scope as the AI narrative. createdAt is absent for projects
- * curated before it was stored — the builder degrades those dates honestly
- * ("A while ago") instead of guessing.
+ * same curated scope as the AI narrative.
  */
 function curatedToRepos(projects: CuratedProject[]): GitHubRepo[] {
   return projects.map((p) => ({
@@ -63,53 +69,135 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [generatedRepos, setGeneratedRepos] = useState<CuratedProject[]>([]);
   const [message, setMessage] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  // Deterministic story rebuilt for the curated scope once the client knows
-  // the curated set (localStorage); the SSR prop is only a first-paint shell.
   const [curatedStory, setCuratedStory] = useState<JourneyStory | null>(null);
 
-  const generate = useCallback(async () => {
-    const curated = loadCuratedProjects(user.login);
-    if (curated.length === 0) {
-      setStatus("empty");
-      return;
-    }
-    // The fallback story and the AI narrative now share the curated scope.
-    setCuratedStory(buildJourneyStory(user, curatedToRepos(curated)));
-    setStatus("loading");
-    setNarrative(null);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/journey/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repos: curated.map((p) => p.fullName) }),
-      });
-      const data = (await res.json()) as GenerateResponse;
-      if (res.ok && data.narrative) {
-        setNarrative(data.narrative);
-        setEvidence(data.evidence ?? []);
-        setPatterns(data.patterns ?? []);
-        setWarnings(data.warnings ?? []);
-        setGeneratedRepos(data.repos ?? []);
-        setStatus("ready");
-      } else if (res.status === 401) {
-        setMessage("Your GitHub session expired. Reconnect GitHub and try again.");
-        setStatus("error");
-      } else {
-        // 502 / 503 / 500: deterministic story, clearly labeled.
-        setMessage(data.message ?? "The AI narrative is unavailable right now.");
+  // Customization & Approval States
+  const [tone, setTone] = useState<string>("Professional");
+  const [customPrompt, setCustomPrompt] = useState<string>("");
+  const [isApproved, setIsApproved] = useState<boolean>(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
+
+  const fetchGeneration = useCallback(
+    async (options: { tone?: string; customPrompt?: string } = {}) => {
+      const curated = loadCuratedProjects(user.login);
+      if (curated.length === 0) {
+        setStatus("empty");
+        return;
+      }
+      setCuratedStory(buildJourneyStory(user, curatedToRepos(curated)));
+      setMessage(null);
+
+      try {
+        const res = await fetch("/api/journey/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            repos: curated.map((p) => p.fullName),
+            tone: options.tone ?? tone,
+            customPrompt: options.customPrompt ?? customPrompt,
+          }),
+        });
+        const data = (await res.json()) as GenerateResponse;
+        if (res.ok && data.narrative) {
+          setNarrative(data.narrative);
+          setEvidence(data.evidence ?? []);
+          setPatterns(data.patterns ?? []);
+          setWarnings(data.warnings ?? []);
+          setGeneratedRepos(data.repos ?? []);
+          setStatus("ready");
+        } else if (res.status === 401) {
+          setMessage("Your GitHub session expired. Reconnect GitHub and try again.");
+          setStatus("error");
+        } else {
+          setMessage(data.message ?? "The AI narrative is unavailable right now.");
+          setStatus("degraded");
+        }
+      } catch {
+        setMessage("A network error interrupted the journey generation.");
         setStatus("degraded");
       }
-    } catch {
-      setMessage("A network error interrupted the journey generation.");
-      setStatus("degraded");
-    }
-  }, [user.login]);
+    },
+    [user, tone, customPrompt]
+  );
 
+  // Initial Load: check for saved approved story first
   useEffect(() => {
-    void generate();
-  }, [generate, attempt]);
+    const approved = loadApprovedJourney(user.login);
+    if (approved) {
+      setNarrative(approved.narrative);
+      setIsApproved(true);
+      setSavedAt(approved.savedAt);
+      if (approved.tone) setTone(approved.tone);
+      if (approved.customPrompt) setCustomPrompt(approved.customPrompt);
+      setStatus("ready");
+
+      // Also gather evidence in background so citations stay interactive
+      const curated = loadCuratedProjects(user.login);
+      if (curated.length > 0) {
+        setCuratedStory(buildJourneyStory(user, curatedToRepos(curated)));
+        fetch(`/api/journey/evidence?repos=${encodeURIComponent(curated.map((p) => p.fullName).join(","))}`)
+          .then((r) => r.json())
+          .then((d) => {
+            if (d.evidence) setEvidence(d.evidence);
+            if (d.repos) setGeneratedRepos(d.repos);
+          })
+          .catch(() => {});
+      }
+    } else {
+      void fetchGeneration();
+    }
+  }, [user.login, fetchGeneration]);
+
+  const handleRegenerate = async (options: { tone: string; customPrompt: string }) => {
+    setTone(options.tone);
+    setCustomPrompt(options.customPrompt);
+    setIsRegenerating(true);
+    setIsEditing(false);
+    setIsApproved(false);
+    await fetchGeneration(options);
+    setIsRegenerating(false);
+  };
+
+  const handleSaveEdited = (editedNarrative: GuardedNarrative) => {
+    const timestamp = new Date().toISOString();
+    const approved: ApprovedJourney = {
+      narrative: editedNarrative,
+      isApproved: true,
+      savedAt: timestamp,
+      tone,
+      customPrompt,
+    };
+    saveApprovedJourney(user.login, approved);
+    setNarrative(editedNarrative);
+    setIsApproved(true);
+    setSavedAt(timestamp);
+    setIsEditing(false);
+  };
+
+  const handleApproveCurrent = () => {
+    if (!narrative) return;
+    const timestamp = new Date().toISOString();
+    const approved: ApprovedJourney = {
+      narrative,
+      isApproved: true,
+      savedAt: timestamp,
+      tone,
+      customPrompt,
+    };
+    saveApprovedJourney(user.login, approved);
+    setIsApproved(true);
+    setSavedAt(timestamp);
+  };
+
+  const handleRevertToDraft = () => {
+    clearApprovedJourney(user.login);
+    setIsApproved(false);
+    setSavedAt(null);
+    setIsEditing(false);
+    void fetchGeneration();
+  };
 
   const story = curatedStory ?? deterministicStory;
 
@@ -145,7 +233,7 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
               {message ? ` (${message})` : ""}
             </span>
           </p>
-          <Button size="sm" variant="outline" onClick={() => setAttempt((n) => n + 1)} className="shrink-0 text-xs">
+          <Button size="sm" variant="outline" onClick={() => fetchGeneration()} className="shrink-0 text-xs">
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
             Retry
           </Button>
@@ -154,18 +242,75 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       {status === "error" && (
         <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3">
           <p className="text-sm text-red-400">{message ?? "Something went wrong."}</p>
-          <Button size="sm" variant="outline" onClick={() => setAttempt((n) => n + 1)} className="shrink-0 text-xs">
+          <Button size="sm" variant="outline" onClick={() => fetchGeneration()} className="shrink-0 text-xs">
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
             Retry
           </Button>
         </div>
       )}
-      {status === "ready" && narrative && (
-        <div className="mt-6 flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-400">
-          <Sparkles className="h-4 w-4" />
-          AI narrative verified against {evidence.length} evidence {evidence.length === 1 ? "record" : "records"} —
-          {narrative.verifiedClaimCount} claim{narrative.verifiedClaimCount === 1 ? "" : "s"} grounded,{" "}
-          {narrative.droppedClaimCount} dropped by guardrails
+      {status === "ready" && narrative && !isEditing && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/50 p-4 shadow-sm backdrop-blur-md">
+          <div className="flex items-center gap-2 text-sm">
+            {isApproved ? (
+              <span className="flex items-center gap-1.5 font-bold text-emerald-400">
+                <CheckCircle className="h-4 w-4 text-emerald-400" />
+                Approved Story Live
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 font-bold text-primary">
+                <Sparkles className="h-4 w-4 text-primary" />
+                AI-Generated Draft
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground">
+              · Grounded in {evidence.length} evidence records
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {!isApproved ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                  className="text-xs"
+                >
+                  <Edit3 className="mr-1.5 h-3.5 w-3.5" />
+                  Edit Draft
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleApproveCurrent}
+                  className="text-xs font-semibold shadow-sm"
+                >
+                  <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                  Approve as Official Story
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                  className="text-xs"
+                >
+                  <Edit3 className="mr-1.5 h-3.5 w-3.5" />
+                  Edit Story
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRevertToDraft}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                  Reset to AI Draft
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -185,24 +330,52 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
         </div>
       )}
 
-      {/* Deterministic story: curated scope (client-built) — in-flight content and labeled fallback */}
+      {/* Deterministic story fallback */}
       {(status === "loading" || status === "degraded" || status === "error") && (
         <DeterministicStory story={story} />
       )}
 
-      {/* Guardrailed AI narrative */}
+      {/* Interactive AI Narrative & Customizer */}
       {status === "ready" && narrative && (
-        <>
-          <Narrative narrative={narrative} evidence={evidence} />
-          <EvidencePanel
-            user={user}
-            repos={generatedRepos}
-            patterns={patterns}
-            narrative={narrative}
-            evidence={evidence}
-            warnings={warnings}
-          />
-        </>
+        <div className="space-y-6">
+          {/* Customization Toolbar */}
+          {!isEditing && (
+            <JourneyCustomizer
+              currentTone={tone}
+              currentPrompt={customPrompt}
+              isGenerating={isRegenerating}
+              onRegenerate={handleRegenerate}
+            />
+          )}
+
+          {/* Manual Editor or Guardrailed View */}
+          {isEditing ? (
+            <NarrativeEditor
+              initialNarrative={narrative}
+              evidence={evidence}
+              onSave={handleSaveEdited}
+              onCancel={() => setIsEditing(false)}
+            />
+          ) : (
+            <>
+              <Narrative
+                narrative={narrative}
+                evidence={evidence}
+                isApproved={isApproved}
+                savedAt={savedAt ?? undefined}
+                onEdit={() => setIsEditing(true)}
+              />
+              <EvidencePanel
+                user={user}
+                repos={generatedRepos}
+                patterns={patterns}
+                narrative={narrative}
+                evidence={evidence}
+                warnings={warnings}
+              />
+            </>
+          )}
+        </div>
       )}
     </div>
   );

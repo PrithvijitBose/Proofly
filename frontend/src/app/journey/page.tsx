@@ -1,5 +1,4 @@
-import { auth } from "@/auth";
-import { getGitHubAccessToken } from "@/lib/auth/github-token";
+import { getAuthenticatedSessionOrPat } from "@/lib/auth/github-token";
 import { buildJourneyStory } from "@/lib/github/journey";
 import { fetchOwnedRepos, getAuthenticatedUser, GitHubApiError } from "@/lib/github/client";
 import { GitHubSignInButton } from "@/components/auth/github-sign-in-button";
@@ -22,29 +21,9 @@ export const dynamic = "force-dynamic";
  * citation chips — lives in the client <JourneyFlow>.
  */
 export default async function JourneyPage() {
-  let session = null;
-  try {
-    session = await auth();
-  } catch {
-    // auth() throws when OAuth is unconfigured (contributor dev env) — expected
-  }
-  let user = session?.user;
-  const accessToken = await getGitHubAccessToken();
-
-  if (!user && accessToken) {
-    console.log("[journey/page.tsx] Attempting to resolve user via PAT...");
-    try {
-      const ghUser = await getAuthenticatedUser(accessToken);
-      console.log("[journey/page.tsx] Resolved user successfully:", ghUser.login);
-      user = {
-        name: ghUser.name ?? null,
-        login: ghUser.login,
-        avatar: ghUser.avatar_url,
-      } as any;
-    } catch (err) {
-      console.error("[journey/page.tsx] Failed to resolve user via PAT:", err);
-    }
-  }
+  const authData = await getAuthenticatedSessionOrPat();
+  const user = authData?.user;
+  const accessToken = authData?.token;
 
   if (!user || !user.login || !accessToken) {
     return (

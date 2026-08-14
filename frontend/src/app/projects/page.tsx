@@ -1,5 +1,4 @@
-import { auth } from "@/auth";
-import { getGitHubAccessToken } from "@/lib/auth/github-token";
+import { getAuthenticatedSessionOrPat } from "@/lib/auth/github-token";
 import { fetchOwnedRepos, getAuthenticatedUser, GitHubApiError } from "@/lib/github/client";
 import { ProjectCuration } from "@/components/curation/project-curation";
 import { GitHubSignInButton } from "@/components/auth/github-sign-in-button";
@@ -8,27 +7,9 @@ import { Layers } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
-  let session = null;
-  try {
-    session = await auth();
-  } catch {
-    // auth() throws when OAuth is unconfigured (contributor dev env) — expected
-  }
-  let user = session?.user;
-  const accessToken = await getGitHubAccessToken();
-
-  if (!user && accessToken) {
-    try {
-      const ghUser = await getAuthenticatedUser(accessToken);
-      user = {
-        name: ghUser.name ?? null,
-        login: ghUser.login,
-        avatar: ghUser.avatar_url,
-      } as any;
-    } catch {
-      // Invalid PAT
-    }
-  }
+  const authData = await getAuthenticatedSessionOrPat();
+  const user = authData?.user;
+  const accessToken = authData?.token;
 
   if (!user || !user.login || !accessToken) {
     return (

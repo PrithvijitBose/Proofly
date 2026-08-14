@@ -10,6 +10,8 @@ export interface CuratedProject {
   stargazersCount: number;
   forksCount: number;
   pushedAt: string;
+  // Optional: absent for projects curated before this field was stored.
+  createdAt?: string | null;
   customNote: string;
   priority: number; // 1-indexed priority order
 }
@@ -86,6 +88,7 @@ export function mapRepoToCuratedProject(repo: GitHubRepo, priority: number, cust
     stargazersCount: repo.stargazers_count,
     forksCount: repo.forks_count,
     pushedAt: repo.pushed_at,
+    createdAt: repo.created_at,
     customNote,
     priority,
   };

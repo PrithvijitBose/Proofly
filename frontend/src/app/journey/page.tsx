@@ -11,12 +11,15 @@ export const dynamic = "force-dynamic";
 /**
  * Journey page v2.
  *
- * Server shell: auth gate, hero for unauthenticated visitors, and the
+ * Server shell: auth gate, hero for unauthenticated visitors, and a
  * deterministic story rendered instantly (SSR) so the client flow has
- * in-flight content while the AI narrative generates. All interactivity —
- * reading curated repos from localStorage, POSTing /api/journey/generate,
- * rendering the guardrailed narrative with citation chips — lives in the
- * client <JourneyFlow>.
+ * in-flight content while the AI narrative generates. Curated repos live
+ * in localStorage (client-only), so this SSR story covers all owned repos
+ * as a first-paint superset; <JourneyFlow> immediately rebuilds the
+ * deterministic story from the curated set so the fallback matches the AI
+ * narrative's curated scope. All interactivity — reading curated repos,
+ * POSTing /api/journey/generate, rendering the guardrailed narrative with
+ * citation chips — lives in the client <JourneyFlow>.
  */
 export default async function JourneyPage() {
   const session = await auth();

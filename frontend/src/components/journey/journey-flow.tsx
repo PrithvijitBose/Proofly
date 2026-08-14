@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, RefreshCw, ShieldAlert, Sparkles, BookmarkCheck } from "lucide-react";
-import type { GitHubUser } from "@/lib/github/client";
-import type { JourneyStory } from "@/lib/github/journey";
+import type { GitHubRepo, GitHubUser } from "@/lib/github/client";
+import { buildJourneyStory, type JourneyStory } from "@/lib/github/journey";
 import type { GuardedNarrative } from "@/lib/github/guardrails";
 import type { EvidenceRecord } from "@/lib/github/evidence";
 import type { PatternFact } from "@/lib/github/patterns";
@@ -15,6 +15,30 @@ import { EvidencePanel } from "./evidence-panel";
 import { Button } from "@/components/ui/button";
 
 type FlowStatus = "checking" | "empty" | "loading" | "ready" | "degraded" | "error";
+
+/**
+ * Maps curated projects (client-side metadata) to the repo shape the
+ * deterministic story builder expects, so the fallback story covers the
+ * same curated scope as the AI narrative. createdAt is absent for projects
+ * curated before it was stored — the builder degrades those dates honestly
+ * ("A while ago") instead of guessing.
+ */
+function curatedToRepos(projects: CuratedProject[]): GitHubRepo[] {
+  return projects.map((p) => ({
+    id: p.repoId,
+    name: p.name,
+    full_name: p.fullName,
+    html_url: p.htmlUrl,
+    description: p.description,
+    language: p.language,
+    stargazers_count: p.stargazersCount,
+    forks_count: p.forksCount,
+    pushed_at: p.pushedAt,
+    created_at: p.createdAt ?? "",
+    archived: false,
+    fork: false,
+  }));
+}
 
 interface GenerateResponse {
   narrative: GuardedNarrative | null;
@@ -40,6 +64,9 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
   const [generatedRepos, setGeneratedRepos] = useState<CuratedProject[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // Deterministic story rebuilt for the curated scope once the client knows
+  // the curated set (localStorage); the SSR prop is only a first-paint shell.
+  const [curatedStory, setCuratedStory] = useState<JourneyStory | null>(null);
 
   const generate = useCallback(async () => {
     const curated = loadCuratedProjects(user.login);
@@ -47,6 +74,8 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       setStatus("empty");
       return;
     }
+    // The fallback story and the AI narrative now share the curated scope.
+    setCuratedStory(buildJourneyStory(user, curatedToRepos(curated)));
     setStatus("loading");
     setNarrative(null);
     setMessage(null);
@@ -82,19 +111,21 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
     void generate();
   }, [generate, attempt]);
 
+  const story = curatedStory ?? deterministicStory;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
       {/* Hero */}
       <header className="text-center">
-        <div className="mx-auto mb-5 h-20 w-20 overflow-hidden rounded-full ring-2 ring-primary/40">
+        <div className="mx-auto mb-6 h-20 w-20 overflow-hidden rounded-full ring-2 ring-primary/40">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={deterministicStory.userAvatar} alt={deterministicStory.userLogin} className="h-full w-full object-cover" />
+          <img src={story.userAvatar} alt={story.userLogin} className="h-full w-full object-cover" />
         </div>
         <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-          {deterministicStory.userName}&apos;s Journey
+          {story.userName}&apos;s Journey
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          @{deterministicStory.userLogin} · curated GitHub history, written as a story
+          @{story.userLogin} · curated GitHub history, written as a story
         </p>
       </header>
 
@@ -110,7 +141,7 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
           <p className="flex items-center gap-2 text-sm text-amber-400">
             <ShieldAlert className="h-4 w-4 shrink-0" />
             <span>
-              Deterministic fallback — AI narrative unavailable
+              Deterministic fallback — AI narrative unavailable. Showing the story for your curated repositories
               {message ? ` (${message})` : ""}
             </span>
           </p>
@@ -154,9 +185,9 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
         </div>
       )}
 
-      {/* Deterministic story: shown in-flight and as the labeled fallback */}
+      {/* Deterministic story: curated scope (client-built) — in-flight content and labeled fallback */}
       {(status === "loading" || status === "degraded" || status === "error") && (
-        <DeterministicStory story={deterministicStory} />
+        <DeterministicStory story={story} />
       )}
 
       {/* Guardrailed AI narrative */}

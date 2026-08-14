@@ -113,9 +113,10 @@ export function buildJourneyStory(user: GitHubUser, allRepos: GitHubRepo[]): Jou
   }, {});
   const topLanguages = Object.entries(languages).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
-  const yearsActive = oldest
-    ? Math.max(1, Math.ceil((Date.now() - new Date(oldest.created_at).getTime()) / (365.25 * DAY_MS)))
-    : 0;
+  // Guarded against invalid dates: curated projects without a stored
+  // createdAt surface as 0 years, not "NaN years".
+  const rawYears = oldest ? Math.ceil((Date.now() - new Date(oldest.created_at).getTime()) / (365.25 * DAY_MS)) : 0;
+  const yearsActive = Number.isFinite(rawYears) ? Math.max(1, rawYears) : 0;
 
   const recentlyPushed = repos.filter((r) => new Date(r.pushed_at).getTime() > Date.now() - 90 * DAY_MS).length;
 

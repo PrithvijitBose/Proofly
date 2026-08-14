@@ -1,5 +1,4 @@
-import { auth } from "@/auth";
-import { getGitHubAccessToken } from "@/lib/auth/github-token";
+import { getAuthenticatedSessionOrPat } from "@/lib/auth/github-token";
 import { fetchOwnedRepos, getAuthenticatedUser, GitHubApiError } from "@/lib/github/client";
 import { ProjectCuration } from "@/components/curation/project-curation";
 import { GitHubSignInButton } from "@/components/auth/github-sign-in-button";
@@ -8,29 +7,18 @@ import { Layers } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
-  let session = null;
-  try {
-    session = await auth();
-  } catch {
-    // auth() throws when OAuth is unconfigured (contributor dev env) — expected
-  }
-  let user = session?.user;
-  const accessToken = await getGitHubAccessToken();
+  const authData = await getAuthenticatedSessionOrPat();
 
-  if (!user && accessToken) {
-    try {
-      const ghUser = await getAuthenticatedUser(accessToken);
-      user = {
-        name: ghUser.name ?? null,
-        login: ghUser.login,
-        avatar: ghUser.avatar_url,
-      } as any;
-    } catch {
-      // Invalid PAT
-    }
+  if (authData.status === "upstream_error") {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6">
+        <h1 className="text-2xl font-bold text-white font-display">Couldn&apos;t connect to GitHub</h1>
+        <p className="mt-3 text-proof-ash">{authData.message}</p>
+      </div>
+    );
   }
 
-  if (!user || !user.login || !accessToken) {
+  if (authData.status === "unauthorized") {
     return (
       <div className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-proof-amber/10 text-proof-amber">
@@ -48,6 +36,8 @@ export default async function ProjectsPage() {
       </div>
     );
   }
+
+  const { token: accessToken } = authData;
 
   try {
     const [ghUser, repos] = await Promise.all([

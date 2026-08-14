@@ -20,7 +20,6 @@ export async function getGitHubAccessToken(): Promise<string | null> {
   try {
     const pat = await getPatToken();
     if (pat) {
-      console.log("[getGitHubAccessToken] Using PAT token:", pat.slice(0, 8) + "...");
       return pat;
     }
   } catch {
@@ -31,13 +30,11 @@ export async function getGitHubAccessToken(): Promise<string | null> {
   try {
     const session = await auth();
     if (session?.accessToken) {
-      console.log("[getGitHubAccessToken] Using OAuth token from NextAuth session");
       return session.accessToken;
     }
   } catch {
     // auth() can throw when OAuth provider is not configured (no GITHUB_ID/SECRET).
     // This is expected for contributors — fall through silently.
-    console.log("[getGitHubAccessToken] auth() unavailable (OAuth likely not configured)");
   }
 
   // ── 3. Direct JWT cookie decryption (edge-case fallback) ──────────────
@@ -81,5 +78,84 @@ export async function getGitHubAccessToken(): Promise<string | null> {
     return await getPatToken();
   } catch {
     return null;
+  }
+}
+
+export interface ResolvedAuth {
+  token: string;
+  login: string;
+  user: {
+    name: string | null;
+    login: string;
+    avatar?: string;
+  };
+}
+
+export type AuthResult =
+  | { status: "authenticated"; token: string; login: string; user: ResolvedAuth["user"] }
+  | { status: "unauthorized" }
+  | { status: "upstream_error"; message: string; statusCode?: number };
+
+/**
+ * Server-only: returns the authenticated user login and GitHub access token.
+ * Supports both OAuth (Auth.js session) and Personal Access Token (PAT cookie).
+ * Distinguishes invalid credentials (unauthorized) from GitHub upstream failures.
+ */
+export async function getAuthenticatedSessionOrPat(): Promise<AuthResult> {
+  const token = await getGitHubAccessToken();
+  if (!token) return { status: "unauthorized" };
+
+  // 1. NextAuth session (OAuth flow)
+  try {
+    const session = await auth();
+    if (session?.user?.login) {
+      return {
+        status: "authenticated",
+        token,
+        login: session.user.login,
+        user: {
+          name: session.user.name ?? null,
+          login: session.user.login,
+          avatar: session.user.avatar,
+        },
+      };
+    }
+  } catch {
+    // Expected when OAuth is not configured
+  }
+
+  // 2. PAT fallback: query GitHub /user with the token
+  try {
+    const { getAuthenticatedUser } = await import("@/lib/github/client");
+    const ghUser = await getAuthenticatedUser(token);
+    if (ghUser?.login) {
+      return {
+        status: "authenticated",
+        token,
+        login: ghUser.login,
+        user: {
+          name: ghUser.name ?? null,
+          login: ghUser.login,
+          avatar: ghUser.avatar_url,
+        },
+      };
+    }
+    return { status: "unauthorized" };
+  } catch (err) {
+    const { GitHubApiError } = await import("@/lib/github/client");
+    if (err instanceof GitHubApiError) {
+      if (err.status === 401 || err.status === 403) {
+        return { status: "unauthorized" };
+      }
+      return {
+        status: "upstream_error",
+        message: err.message || `GitHub API request failed with status ${err.status}`,
+        statusCode: err.status,
+      };
+    }
+    return {
+      status: "upstream_error",
+      message: err instanceof Error ? err.message : "Failed to communicate with GitHub.",
+    };
   }
 }

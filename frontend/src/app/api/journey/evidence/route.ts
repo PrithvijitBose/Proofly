@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { getGitHubAccessToken } from "@/lib/auth/github-token";
+import { getAuthenticatedSessionOrPat } from "@/lib/auth/github-token";
 import { getAuthenticatedUser, GitHubApiError } from "@/lib/github/client";
 import type { CuratedProject } from "@/lib/github/curation";
 import { gatherEvidence, MAX_CURATED_REPOS } from "@/lib/github/gather";
@@ -12,7 +11,7 @@ const REPO_NAME_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 /**
  * GET /api/journey/evidence?repos=owner/name,owner/name2
  *
- * Server-only: reads the GitHub access token from the session and never
+ * Server-only: reads the GitHub access token (OAuth or PAT) and never
  * exposes it. Curated repositories live in the browser's localStorage, so
  * the client passes the curated full names as a query param; the server
  * re-fetches all evidence with its own token (the client sends no data
@@ -21,12 +20,17 @@ const REPO_NAME_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
  * Response: { user, repos, evidence: EvidenceRecord[], warnings: string[] }
  */
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  const login = session?.user?.login;
-  const token = await getGitHubAccessToken();
-  if (!login || !token) {
+  const authData = await getAuthenticatedSessionOrPat();
+  if (authData.status === "unauthorized") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  if (authData.status === "upstream_error") {
+    return NextResponse.json(
+      { error: "unavailable", message: authData.message },
+      { status: 502 }
+    );
+  }
+  const { login, token } = authData;
 
   const raw = request.nextUrl.searchParams.get("repos") ?? "";
   const fullNames = raw

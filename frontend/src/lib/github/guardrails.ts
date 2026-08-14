@@ -98,6 +98,11 @@ interface ClaimVerdict {
 }
 
 function verifyClaim(claim: NarrativeClaim, byId: Map<string, EvidenceRecord>): ClaimVerdict {
+  // Rule 0: every claim must cite at least one evidence id.
+  if (claim.evidenceIds.length === 0) {
+    return { status: "dropped", reasons: ["claim has no cited evidence ids"] };
+  }
+
   // Rule 1: every cited id must resolve against the FULL evidence store.
   const resolved = claim.evidenceIds.map((id) => byId.get(id));
   if (resolved.some((record) => record === undefined)) {

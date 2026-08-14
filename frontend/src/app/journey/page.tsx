@@ -1,5 +1,4 @@
-import { auth } from "@/auth";
-import { getGitHubAccessToken } from "@/lib/auth/github-token";
+import { getAuthenticatedSessionOrPat } from "@/lib/auth/github-token";
 import { buildJourneyStory } from "@/lib/github/journey";
 import { fetchOwnedRepos, getAuthenticatedUser, GitHubApiError } from "@/lib/github/client";
 import { GitHubSignInButton } from "@/components/auth/github-sign-in-button";
@@ -22,31 +21,18 @@ export const dynamic = "force-dynamic";
  * citation chips — lives in the client <JourneyFlow>.
  */
 export default async function JourneyPage() {
-  let session = null;
-  try {
-    session = await auth();
-  } catch {
-    // auth() throws when OAuth is unconfigured (contributor dev env) — expected
-  }
-  let user = session?.user;
-  const accessToken = await getGitHubAccessToken();
+  const authData = await getAuthenticatedSessionOrPat();
 
-  if (!user && accessToken) {
-    console.log("[journey/page.tsx] Attempting to resolve user via PAT...");
-    try {
-      const ghUser = await getAuthenticatedUser(accessToken);
-      console.log("[journey/page.tsx] Resolved user successfully:", ghUser.login);
-      user = {
-        name: ghUser.name ?? null,
-        login: ghUser.login,
-        avatar: ghUser.avatar_url,
-      } as any;
-    } catch (err) {
-      console.error("[journey/page.tsx] Failed to resolve user via PAT:", err);
-    }
+  if (authData.status === "upstream_error") {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6">
+        <h1 className="text-2xl font-bold">Couldn&apos;t connect to GitHub</h1>
+        <p className="mt-3 text-muted-foreground">{authData.message}</p>
+      </div>
+    );
   }
 
-  if (!user || !user.login || !accessToken) {
+  if (authData.status === "unauthorized") {
     return (
       <div className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -65,6 +51,8 @@ export default async function JourneyPage() {
       </div>
     );
   }
+
+  const { token: accessToken } = authData;
 
   let story;
   try {

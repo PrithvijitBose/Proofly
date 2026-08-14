@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { getGitHubAccessToken } from "@/lib/auth/github-token";
+import { getAuthenticatedSessionOrPat } from "@/lib/auth/github-token";
 import { getAuthenticatedUser, GitHubApiError } from "@/lib/github/client";
 import { gatherEvidence, MAX_CURATED_REPOS } from "@/lib/github/gather";
 import { analyzePatterns } from "@/lib/github/patterns";
 import { buildContextPack } from "@/lib/github/context-pack";
-import { AiJourneyError, generateAiNarrative, validateClaimsAgainstEvidence } from "@/lib/github/ai-journey";
+import { AiJourneyError, generateAiNarrative } from "@/lib/github/ai-journey";
 import { verifyNarrative } from "@/lib/github/guardrails";
 import type { CuratedProject } from "@/lib/github/curation";
 
@@ -32,19 +31,28 @@ const REPO_NAME_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
  *   401 unauthenticated
  */
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  const login = session?.user?.login;
-  const token = await getGitHubAccessToken();
-  if (!login || !token) {
+  const authData = await getAuthenticatedSessionOrPat();
+  if (authData.status === "unauthorized") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  if (authData.status === "upstream_error") {
+    return NextResponse.json(
+      { error: "unavailable", message: authData.message },
+      { status: 502 }
+    );
+  }
+  const { login, token } = authData;
 
-  let body: { repos?: unknown } = {};
+  let body: { repos?: unknown; tone?: unknown; customPrompt?: unknown } = {};
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "invalid_body", message: "Expected a JSON body." }, { status: 400 });
   }
+
+  const tone = typeof body.tone === "string" && body.tone.trim() ? body.tone.trim() : undefined;
+  const customPrompt =
+    typeof body.customPrompt === "string" && body.customPrompt.trim() ? body.customPrompt.trim() : undefined;
 
   const fullNames = Array.isArray(body.repos)
     ? body.repos
@@ -103,29 +111,11 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const narrative = await generateAiNarrative(pack, apiKey);
-
-      // First guardrail line: claims must cite real evidence before we respond.
-      const check = validateClaimsAgainstEvidence(narrative, gathered.evidence);
-      if (!check.valid) {
-        return NextResponse.json(
-          {
-            error: "invalid_narrative",
-            message: "The AI narrative failed evidence validation.",
-            problems: check.problems.slice(0, 20),
-            narrative: null,
-            user,
-            repos,
-            warnings: gathered.warnings,
-          },
-          { status: 502 }
-        );
-      }
+      const narrative = await generateAiNarrative(pack, apiKey, { tone, customPrompt });
 
       // Guardrail pass: deterministic verification of every claim against
       // the FULL evidence store (unknown ids / fabrication → dropped,
-      // numeric/entity mismatches → flagged). The response carries the
-      // verified flags the UI renders.
+      // numeric/entity mismatches → flagged, dropped chapters replaced by facts).
       const guarded = verifyNarrative(narrative, gathered.evidence, patterns);
 
       return NextResponse.json({
@@ -135,6 +125,8 @@ export async function POST(request: NextRequest) {
         evidence: gathered.evidence,
         patterns,
         warnings: gathered.warnings,
+        tone,
+        customPrompt,
       });
     } catch (err) {
       // AI failures always answer 502 — upstream provider statuses (429/503/500)

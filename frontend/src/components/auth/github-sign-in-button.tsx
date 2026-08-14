@@ -15,7 +15,7 @@ function useOAuthAvailable(): boolean {
   // NEXT_PUBLIC_OAUTH_CONFIGURED is an optional build-time flag.
   // When not present, we assume OAuth IS configured (production default).
   if (typeof window !== "undefined") {
-    const flag = (window as Record<string, unknown>).__PROOFLY_OAUTH_CONFIGURED__;
+    const flag = (window as unknown as Record<string, unknown>).__PROOFLY_OAUTH_CONFIGURED__;
     if (flag !== undefined) return Boolean(flag);
   }
   return true; // Assume OAuth works until proven otherwise at runtime

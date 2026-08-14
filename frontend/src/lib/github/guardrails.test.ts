@@ -134,6 +134,27 @@ describe("verifyNarrative", () => {
     expect(result.dropReasons.some((r) => r.includes("ghost-id"))).toBe(true);
   });
 
+  it("drops claims with empty evidenceIds before numeric validation (including numeric claims)", () => {
+    const result = verifyNarrative(
+      narrative([
+        {
+          index: 1,
+          title: "Numbers Without Evidence",
+          kicker: "k",
+          claims: [{ text: "Shipped 10 major features in 2024 with 50 stars.", evidenceIds: [] }],
+        },
+      ]),
+      fixtureEvidence(),
+      fixturePatterns()
+    );
+
+    expect(result.droppedClaimCount).toBe(1);
+    expect(result.verifiedClaimCount).toBe(0);
+    expect(result.dropReasons.some((r) => r.includes("no cited evidence ids"))).toBe(true);
+    // Chapter had no valid claims -> replaced by deterministic summary
+    expect(result.chapters[0].deterministic).toBe(true);
+  });
+
   it("flags claims with numbers that do not appear in the cited evidence", () => {
     const result = verifyNarrative(
       narrative([

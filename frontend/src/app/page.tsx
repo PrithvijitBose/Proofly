@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ function GitHubIcon({ className }: { className?: string }) {
   );
 }
 
-export default function Home() {
+function HomeContent() {
   const [healthData, setHealthData] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -431,5 +431,13 @@ export default function Home() {
       {/* GitHub Connect Modal Dialog */}
       <GithubConnectModal isOpen={connectModalOpen} onClose={() => setConnectModalOpen(false)} />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   );
 }

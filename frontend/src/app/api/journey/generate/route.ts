@@ -52,6 +52,13 @@ export async function POST(request: NextRequest) {
         .slice(0, MAX_CURATED_REPOS)
     : [];
 
+  if (fullNames.length === 0) {
+    return NextResponse.json(
+      { error: "invalid_repos", message: "Provide at least one repository as owner/name.", narrative: null },
+      { status: 400 }
+    );
+  }
+
   const repos: CuratedProject[] = fullNames.map((fullName) => ({
     repoId: 0,
     name: fullName.split("/")[1],

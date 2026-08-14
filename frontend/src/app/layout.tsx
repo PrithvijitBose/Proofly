@@ -30,8 +30,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`dark ${spaceGrotesk.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable}`}>
-      <body className="font-sans min-h-screen flex flex-col justify-between bg-proof-obsidian text-slate-100 antialiased selection:bg-proof-amber selection:text-black">
+    <html lang="en" suppressHydrationWarning className={`dark ${spaceGrotesk.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable}`}>
+      <body className="font-sans min-h-screen flex flex-col justify-between bg-proof-obsidian text-slate-100 antialiased selection:bg-proof-amber selection:text-black" suppressHydrationWarning>
         <Navbar />
         <main className="flex-1">{children}</main>
         <Footer />

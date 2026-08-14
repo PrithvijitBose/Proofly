@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ShieldCheck, Github, Terminal, Cpu } from "lucide-react";
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 export function Footer() {
   return (
     <footer className="border-t border-proof-border bg-proof-obsidian py-12">
@@ -68,7 +70,7 @@ export function Footer() {
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-proof-border flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-proof-ash">
-          <p>© {new Date().getFullYear()} PROOFLY PLATFORM. VERIFIABLE IDENTITY LEDGER.</p>
+          <p>© {CURRENT_YEAR} PROOFLY PLATFORM. VERIFIABLE IDENTITY LEDGER.</p>
 
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center gap-1.5 rounded-md bg-proof-carbon border border-proof-emerald/30 px-3 py-1 text-proof-emerald text-[11px]">

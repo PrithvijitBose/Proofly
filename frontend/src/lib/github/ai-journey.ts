@@ -131,7 +131,7 @@ export function parseNarrative(raw: string): AiNarrative | null {
 function validateNarrative(data: unknown): AiNarrative | null {
   if (typeof data !== "object" || data === null) return null;
   const d = data as Record<string, unknown>;
-  if (!Array.isArray(d.chapters) || typeof d.summary !== "string") return null;
+  if (!Array.isArray(d.chapters) || d.chapters.length === 0 || typeof d.summary !== "string") return null;
 
   const chapters: NarrativeChapter[] = [];
   for (const ch of d.chapters) {

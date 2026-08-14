@@ -301,7 +301,9 @@ function cadenceFacts(
     quarterMap.set(q.label, entry);
   }
 
-  const quarters = [...quarterMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  // Chronological order by quarter index (year*4+q), not label text:
+  // "Q3 2024" must precede "Q1 2025" despite the lexicographic reversal.
+  const quarters = [...quarterMap.entries()].sort((a, b) => a[1].quarter.index - b[1].quarter.index);
   for (const [label, entry] of quarters) {
     const n = entry.commits.length;
     const m = entry.pulls.length;

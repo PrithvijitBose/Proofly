@@ -182,6 +182,13 @@ describe("analyzePatterns", () => {
     const streak = cadence.find((f) => f.label === "Longest streak");
     expect(streak).toBeDefined();
     expect(streak!.statement).toContain("3 consecutive quarters");
+
+    // Per-quarter facts are emitted in chronological order (by quarter index,
+    // not label text — "Q1 2025" belongs after "Q3 2024").
+    const quarterLabels = cadence
+      .map((f) => f.label)
+      .filter((label) => /^Q[1-4] \d{4}$/.test(label));
+    expect(quarterLabels).toEqual(["Q1 2023", "Q1 2024", "Q2 2024", "Q3 2024", "Q1 2025", "Q3 2025"]);
   });
 
   it("ranks impact by commits, merged PRs and stars with backing evidence", () => {

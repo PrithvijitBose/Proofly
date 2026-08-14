@@ -192,10 +192,10 @@ describe("generateAiNarrative", () => {
 
   it("throws AiJourneyError(502) on malformed LLM output", async () => {
     mockLlmFetch(200, "not json at all");
-    await expect(generateAiNarrative(packFixture(), "sk-test")).rejects.toMatchObject({
-      name: "AiJourneyError",
-      status: 502,
-    });
+    const err = await generateAiNarrative(packFixture(), "sk-test").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiJourneyError);
+    expect((err as AiJourneyError).status).toBe(502);
+    expect((err as AiJourneyError).providerStatus).toBeUndefined(); // no HTTP failure → no provider status
   });
 
   it("throws AiJourneyError(502) on off-schema LLM output", async () => {
@@ -205,26 +205,35 @@ describe("generateAiNarrative", () => {
 
   it("throws AiJourneyError(502) on HTTP failures with a friendly message", async () => {
     mockLlmFetch(500, {});
-    await expect(generateAiNarrative(packFixture(), "sk-test")).rejects.toMatchObject({
-      name: "AiJourneyError",
-      status: 502,
-    });
+    const err = await generateAiNarrative(packFixture(), "sk-test").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiJourneyError);
+    expect((err as AiJourneyError).status).toBe(502);
+    expect((err as AiJourneyError).providerStatus).toBe(500);
   });
 
-  it("throws AiJourneyError(502) when the key is rejected", async () => {
+  it("throws AiJourneyError(502) when the key is rejected, surfacing provider status 401", async () => {
     mockLlmFetch(401, {});
     const err = await generateAiNarrative(packFixture(), "sk-bad").catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AiJourneyError);
     expect((err as AiJourneyError).status).toBe(502);
     expect((err as AiJourneyError).message.toLowerCase()).toContain("api key");
+    expect((err as AiJourneyError).providerStatus).toBe(401);
+  });
+
+  it("throws AiJourneyError(502) when the provider rate-limits, surfacing provider status 429", async () => {
+    mockLlmFetch(429, {});
+    const err = await generateAiNarrative(packFixture(), "sk-test").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiJourneyError);
+    expect((err as AiJourneyError).status).toBe(502);
+    expect((err as AiJourneyError).providerStatus).toBe(429);
   });
 
   it("throws AiJourneyError(502) on network failure", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
-    await expect(generateAiNarrative(packFixture(), "sk-test")).rejects.toMatchObject({
-      name: "AiJourneyError",
-      status: 502,
-    });
+    const err = await generateAiNarrative(packFixture(), "sk-test").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiJourneyError);
+    expect((err as AiJourneyError).status).toBe(502);
+    expect((err as AiJourneyError).providerStatus).toBeUndefined(); // no HTTP failure → no provider status
   });
 
   it("throws AiJourneyError(502) when the request times out", async () => {
@@ -244,10 +253,10 @@ describe("generateAiNarrative", () => {
       const pending = generateAiNarrative(packFixture(), "sk-test");
       pending.catch(() => {}); // mark handled before the timer rejects it
       await vi.advanceTimersByTimeAsync(AI_REQUEST_TIMEOUT_MS + 100);
-      await expect(pending).rejects.toMatchObject({
-        name: "AiJourneyError",
-        status: 502,
-      });
+      const err = await pending.catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(AiJourneyError);
+      expect((err as AiJourneyError).status).toBe(502);
+      expect((err as AiJourneyError).providerStatus).toBeUndefined(); // no HTTP failure → no provider status
     } finally {
       vi.useRealTimers();
       vi.unstubAllGlobals();

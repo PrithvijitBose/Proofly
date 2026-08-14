@@ -25,7 +25,9 @@ const REPO_NAME_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
  *   200 { user, repos, narrative: GuardedNarrative, evidence, patterns, warnings }
  *       — every claim verified/filtered by the guardrail pass
  *   502 narrative: null (AI failure / schema-invalid output — caller falls
- *       back to the deterministic story, never raw LLM text)
+ *       back to the deterministic story, never raw LLM text; the upstream
+ *       provider's status is surfaced as `providerStatus`, never used as the
+ *       HTTP status)
  *   503 narrative: null + error "llm_not_configured" (no MISTRAL_API_KEY)
  *   401 unauthenticated
  */
@@ -135,10 +137,20 @@ export async function POST(request: NextRequest) {
         warnings: gathered.warnings,
       });
     } catch (err) {
-      const status = err instanceof AiJourneyError ? err.status : 500;
+      // AI failures always answer 502 — upstream provider statuses (429/503/500)
+      // never leak through as the HTTP status; they surface as payload data.
+      const status = err instanceof AiJourneyError ? 502 : 500;
       const message = err instanceof AiJourneyError ? err.message : "Unexpected error while generating the narrative.";
       return NextResponse.json(
-        { error: "ai_failure", message, narrative: null, user, repos, warnings: gathered.warnings },
+        {
+          error: "ai_failure",
+          message,
+          providerStatus: err instanceof AiJourneyError ? (err.providerStatus ?? null) : null,
+          narrative: null,
+          user,
+          repos,
+          warnings: gathered.warnings,
+        },
         { status }
       );
     }

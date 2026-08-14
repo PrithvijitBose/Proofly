@@ -46,8 +46,10 @@ export interface AiNarrative {
 export class AiJourneyError extends Error {
   constructor(
     message: string,
-    /** HTTP status the route should answer with (502 for AI failures). */
-    public status: number = 502
+    /** HTTP status the route should answer with — always 502 for AI failures. */
+    public status: number = 502,
+    /** Upstream provider HTTP status that caused the failure, when known. */
+    public providerStatus?: number
   ) {
     super(message);
     this.name = "AiJourneyError";
@@ -210,12 +212,12 @@ export async function generateAiNarrative(pack: ContextPack, apiKey: string): Pr
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        throw new AiJourneyError("The AI provider rejected the API key. Check MISTRAL_API_KEY.");
+        throw new AiJourneyError("The AI provider rejected the API key. Check MISTRAL_API_KEY.", 502, response.status);
       }
       if (response.status === 429 || response.status === 503) {
-        throw new AiJourneyError("The AI provider is busy or rate-limited. Try again shortly.");
+        throw new AiJourneyError("The AI provider is busy or rate-limited. Try again shortly.", 502, response.status);
       }
-      throw new AiJourneyError(`The AI provider failed with status ${response.status}.`);
+      throw new AiJourneyError(`The AI provider failed with status ${response.status}.`, 502, response.status);
     }
 
     const data: unknown = await response.json();

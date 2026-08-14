@@ -54,7 +54,7 @@ export function NarrativeEditor({
         const newClaim: GuardedClaim = {
           text: "New milestone or accomplishment...",
           evidenceIds: [],
-          verified: true,
+          verified: false,
         };
         return { ...ch, claims: [...ch.claims, newClaim] };
       })

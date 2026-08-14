@@ -73,10 +73,22 @@ function packView(record: EvidenceRecord): EvidenceRecord {
   return { ...record, meta };
 }
 
-/** Rough token estimate: ~4 chars per token over the serialized content. */
+/**
+ * Rough token estimate: ~4 chars per token over the full serialized record.
+ * Covers every required string field that buildUserPrompt serializes
+ * (id, source, repoFullName, date) plus title, url, detail and meta.
+ */
 export function estimateTokens(record: EvidenceRecord): number {
   const metaText = JSON.stringify(record.meta ?? {});
-  const chars = record.title.length + (record.url?.length ?? 0) + (record.detail?.length ?? 0) + metaText.length;
+  const chars =
+    record.id.length +
+    record.source.length +
+    record.repoFullName.length +
+    record.date.length +
+    record.title.length +
+    (record.url?.length ?? 0) +
+    (record.detail?.length ?? 0) +
+    metaText.length;
   return Math.ceil(chars / 4) + 8;
 }
 

@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { EvidenceRecord } from "./evidence";
-import { buildContextPack, DEFAULT_CONTEXT_TOKEN_BUDGET } from "./context-pack";
+import { buildContextPack, DEFAULT_CONTEXT_TOKEN_BUDGET, estimateTokens } from "./context-pack";
 import type { PatternFact } from "./patterns";
 
 const FETCHED_AT = "2026-01-15T12:00:00Z";
@@ -107,12 +107,17 @@ describe("buildContextPack", () => {
       rec("e1", { source: "event", title: "Starred repo-a", date: "2025-01-06T00:00:00Z", meta: { type: "WatchEvent" } }),
     ];
 
-    // Budget fits only the merged PR (~30 tokens; PR ~31).
-    const tiny = buildContextPack(evidence, [], { tokenBudget: 50 });
+    // Budget derived from the actual record estimates (no hard-coded numbers):
+    // the tiny pack fits exactly the single expected record (the merged PR).
+    const p1 = evidence.find((e) => e.id === "p1")!;
+    const p2 = evidence.find((e) => e.id === "p2")!;
+    const c2 = evidence.find((e) => e.id === "c2")!;
+    const tiny = buildContextPack(evidence, [], { tokenBudget: estimateTokens(p1) });
     expect(tiny.evidencePack.map((e) => e.id)).toEqual(["p1"]);
 
     // Slightly larger: merged PR + unmerged PR + non-trivial commit, never trivial "wip".
-    const medium = buildContextPack(evidence, [], { tokenBudget: 100 });
+    const mediumBudget = estimateTokens(p1) + estimateTokens(p2) + estimateTokens(c2);
+    const medium = buildContextPack(evidence, [], { tokenBudget: mediumBudget });
     const order = medium.evidencePack.map((e) => e.id);
     expect(order).toContain("p1");
     expect(order).toContain("c2");

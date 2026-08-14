@@ -21,8 +21,14 @@ const REPO_NAME_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
  */
 export async function GET(request: NextRequest) {
   const authData = await getAuthenticatedSessionOrPat();
-  if (!authData) {
+  if (authData.status === "unauthorized") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (authData.status === "upstream_error") {
+    return NextResponse.json(
+      { error: "unavailable", message: authData.message },
+      { status: 502 }
+    );
   }
   const { login, token } = authData;
 

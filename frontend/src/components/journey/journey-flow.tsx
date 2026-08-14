@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, RefreshCw, ShieldAlert, Sparkles, BookmarkCheck, CheckCircle, Edit3, Award, RotateCcw } from "lucide-react";
 import type { GitHubRepo, GitHubUser } from "@/lib/github/client";
@@ -79,6 +79,11 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
 
+  const optionsRef = useRef({ tone, customPrompt });
+  useEffect(() => {
+    optionsRef.current = { tone, customPrompt };
+  }, [tone, customPrompt]);
+
   const fetchGeneration = useCallback(
     async (options: { tone?: string; customPrompt?: string } = {}) => {
       const curated = loadCuratedProjects(user.login);
@@ -89,14 +94,17 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       setCuratedStory(buildJourneyStory(user, curatedToRepos(curated)));
       setMessage(null);
 
+      const targetTone = options.tone ?? optionsRef.current.tone;
+      const targetPrompt = options.customPrompt ?? optionsRef.current.customPrompt;
+
       try {
         const res = await fetch("/api/journey/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             repos: curated.map((p) => p.fullName),
-            tone: options.tone ?? tone,
-            customPrompt: options.customPrompt ?? customPrompt,
+            tone: targetTone,
+            customPrompt: targetPrompt,
           }),
         });
         const data = (await res.json()) as GenerateResponse;
@@ -119,10 +127,10 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
         setStatus("degraded");
       }
     },
-    [user, tone, customPrompt]
+    [user]
   );
 
-  // Initial Load: check for saved approved story first
+  // Initial Load: check for saved approved story first (runs only on mount per user)
   useEffect(() => {
     const approved = loadApprovedJourney(user.login);
     if (approved) {
@@ -148,7 +156,7 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
     } else {
       void fetchGeneration();
     }
-  }, [user.login, fetchGeneration]);
+  }, [user.login]);
 
   const handleRegenerate = async (options: { tone: string; customPrompt: string }) => {
     setTone(options.tone);
@@ -169,7 +177,11 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       tone,
       customPrompt,
     };
-    saveApprovedJourney(user.login, approved);
+    const ok = saveApprovedJourney(user.login, approved);
+    if (!ok) {
+      setMessage("Could not save your approved story to local storage. Check your browser storage settings.");
+      return;
+    }
     setNarrative(editedNarrative);
     setIsApproved(true);
     setSavedAt(timestamp);
@@ -186,7 +198,11 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       tone,
       customPrompt,
     };
-    saveApprovedJourney(user.login, approved);
+    const ok = saveApprovedJourney(user.login, approved);
+    if (!ok) {
+      setMessage("Could not save your approved story to local storage. Check your browser storage settings.");
+      return;
+    }
     setIsApproved(true);
     setSavedAt(timestamp);
   };

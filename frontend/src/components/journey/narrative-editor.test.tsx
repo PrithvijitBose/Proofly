@@ -75,7 +75,38 @@ describe("NarrativeEditor", () => {
     const saved = onSave.mock.calls[0][0] as GuardedNarrative;
     expect(saved.chapters[0].title).toBe("A New Beginning");
     expect(saved.chapters[0].claims[0].text).toBe("Started writing Rust in 2023.");
+    // Text changed -> verified reset to false
+    expect(saved.chapters[0].claims[0].verified).toBe(false);
+    // Newly added claim -> verified defaults to false
+    expect(saved.chapters[0].claims[1].verified).toBe(false);
     expect(saved.chapters[0].claims).toHaveLength(2);
+  });
+
+  it("preserves verified: true and citations when claim text is unchanged", () => {
+    const onSave = vi.fn();
+    const onCancel = vi.fn();
+
+    render(
+      <NarrativeEditor
+        initialNarrative={mockNarrative}
+        evidence={[]}
+        onSave={onSave}
+        onCancel={onCancel}
+      />
+    );
+
+    // Only edit chapter title, leaving claims unchanged
+    const titleInput = screen.getByDisplayValue("The First Line");
+    fireEvent.change(titleInput, { target: { value: "Updated Title Only" } });
+
+    const saveButtons = screen.getAllByText("Save & Approve Story");
+    fireEvent.click(saveButtons[0]);
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0] as GuardedNarrative;
+    expect(saved.chapters[0].title).toBe("Updated Title Only");
+    expect(saved.chapters[0].claims[0].verified).toBe(true);
+    expect(saved.chapters[0].claims[0].evidenceIds).toEqual(["commit:user/repo:1"]);
   });
 
   it("calls onCancel when cancel button is clicked", () => {

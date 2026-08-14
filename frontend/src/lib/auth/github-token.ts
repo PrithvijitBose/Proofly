@@ -91,19 +91,26 @@ export interface ResolvedAuth {
   };
 }
 
+export type AuthResult =
+  | { status: "authenticated"; token: string; login: string; user: ResolvedAuth["user"] }
+  | { status: "unauthorized" }
+  | { status: "upstream_error"; message: string; statusCode?: number };
+
 /**
  * Server-only: returns the authenticated user login and GitHub access token.
  * Supports both OAuth (Auth.js session) and Personal Access Token (PAT cookie).
+ * Distinguishes invalid credentials (unauthorized) from GitHub upstream failures.
  */
-export async function getAuthenticatedSessionOrPat(): Promise<ResolvedAuth | null> {
+export async function getAuthenticatedSessionOrPat(): Promise<AuthResult> {
   const token = await getGitHubAccessToken();
-  if (!token) return null;
+  if (!token) return { status: "unauthorized" };
 
   // 1. NextAuth session (OAuth flow)
   try {
     const session = await auth();
     if (session?.user?.login) {
       return {
+        status: "authenticated",
         token,
         login: session.user.login,
         user: {
@@ -123,6 +130,7 @@ export async function getAuthenticatedSessionOrPat(): Promise<ResolvedAuth | nul
     const ghUser = await getAuthenticatedUser(token);
     if (ghUser?.login) {
       return {
+        status: "authenticated",
         token,
         login: ghUser.login,
         user: {
@@ -132,9 +140,22 @@ export async function getAuthenticatedSessionOrPat(): Promise<ResolvedAuth | nul
         },
       };
     }
+    return { status: "unauthorized" };
   } catch (err) {
-    console.error("[getAuthenticatedSessionOrPat] Failed to get user with token:", err);
+    const { GitHubApiError } = await import("@/lib/github/client");
+    if (err instanceof GitHubApiError) {
+      if (err.status === 401 || err.status === 403) {
+        return { status: "unauthorized" };
+      }
+      return {
+        status: "upstream_error",
+        message: err.message || `GitHub API request failed with status ${err.status}`,
+        statusCode: err.status,
+      };
+    }
+    return {
+      status: "upstream_error",
+      message: err instanceof Error ? err.message : "Failed to communicate with GitHub.",
+    };
   }
-
-  return null;
 }

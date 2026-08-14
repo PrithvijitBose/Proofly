@@ -63,12 +63,14 @@ export function loadApprovedJourney(login: string): ApprovedJourney | null {
   }
 }
 
-export function saveApprovedJourney(login: string, journey: ApprovedJourney): void {
-  if (typeof window === "undefined") return;
+export function saveApprovedJourney(login: string, journey: ApprovedJourney): boolean {
+  if (typeof window === "undefined") return false;
   try {
     localStorage.setItem(getApprovedJourneyStorageKey(login), JSON.stringify(journey));
+    return true;
   } catch {
     // Gracefully handle storage quota or private browsing exceptions
+    return false;
   }
 }
 

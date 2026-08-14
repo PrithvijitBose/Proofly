@@ -8,10 +8,17 @@ export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
   const authData = await getAuthenticatedSessionOrPat();
-  const user = authData?.user;
-  const accessToken = authData?.token;
 
-  if (!user || !user.login || !accessToken) {
+  if (authData.status === "upstream_error") {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center sm:px-6">
+        <h1 className="text-2xl font-bold text-white font-display">Couldn&apos;t connect to GitHub</h1>
+        <p className="mt-3 text-proof-ash">{authData.message}</p>
+      </div>
+    );
+  }
+
+  if (authData.status === "unauthorized") {
     return (
       <div className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-proof-amber/10 text-proof-amber">
@@ -29,6 +36,8 @@ export default async function ProjectsPage() {
       </div>
     );
   }
+
+  const { token: accessToken } = authData;
 
   try {
     const [ghUser, repos] = await Promise.all([

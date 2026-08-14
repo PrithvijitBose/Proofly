@@ -41,7 +41,18 @@ export function NarrativeEditor({
       prev.map((ch) => {
         if (ch.index !== chapterIndex) return ch;
         const newClaims = [...ch.claims];
-        newClaims[claimIndex] = { ...newClaims[claimIndex], text: newText };
+        const currentClaim = newClaims[claimIndex];
+        const originalChapter = initialNarrative.chapters.find((c) => c.index === chapterIndex);
+        const originalClaim = originalChapter?.claims[claimIndex];
+
+        const isUnchanged = originalClaim && newText === originalClaim.text;
+        const verified = isUnchanged ? originalClaim.verified : false;
+
+        newClaims[claimIndex] = {
+          ...currentClaim,
+          text: newText,
+          verified,
+        };
         return { ...ch, claims: newClaims };
       })
     );

@@ -25,8 +25,14 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   const authData = await getAuthenticatedSessionOrPat();
-  if (!authData) {
+  if (authData.status === "unauthorized") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (authData.status === "upstream_error") {
+    return NextResponse.json(
+      { error: "unavailable", message: authData.message },
+      { status: 502 }
+    );
   }
   const { login, token } = authData;
 

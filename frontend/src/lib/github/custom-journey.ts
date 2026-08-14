@@ -26,14 +26,31 @@ export function loadApprovedJourney(login: string): ApprovedJourney | null {
     const raw = localStorage.getItem(getApprovedJourneyStorageKey(login));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ApprovedJourney>;
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      parsed.narrative &&
-      Array.isArray(parsed.narrative.chapters)
-    ) {
+    const parsed = JSON.parse(raw) as Partial<ApprovedJourney>;
+    const chapters = parsed?.narrative?.chapters;
+    const chaptersValid =
+      Array.isArray(chapters) &&
+      chapters.every(
+        (ch) =>
+          ch &&
+          typeof ch === "object" &&
+          typeof ch.title === "string" &&
+          Array.isArray(ch.claims) &&
+          ch.claims.every(
+            (c) => c && typeof c.text === "string" && Array.isArray(c.evidenceIds)
+          )
+      );
+    if (parsed && typeof parsed === "object" && parsed.narrative && chaptersValid) {
+      const narrative = parsed.narrative;
       return {
-        narrative: parsed.narrative,
+        narrative: {
+          ...narrative,
+          verifiedClaimCount:
+            typeof narrative.verifiedClaimCount === "number" ? narrative.verifiedClaimCount : 0,
+          droppedClaimCount:
+            typeof narrative.droppedClaimCount === "number" ? narrative.droppedClaimCount : 0,
+          dropReasons: Array.isArray(narrative.dropReasons) ? narrative.dropReasons : [],
+        },
         isApproved: Boolean(parsed.isApproved),
         savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : new Date().toISOString(),
         tone: typeof parsed.tone === "string" ? parsed.tone : undefined,

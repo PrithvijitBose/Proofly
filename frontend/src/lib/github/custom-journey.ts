@@ -26,7 +26,6 @@ export function loadApprovedJourney(login: string): ApprovedJourney | null {
     const raw = localStorage.getItem(getApprovedJourneyStorageKey(login));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ApprovedJourney>;
-    const parsed = JSON.parse(raw) as Partial<ApprovedJourney>;
     const chapters = parsed?.narrative?.chapters;
     const chaptersValid =
       Array.isArray(chapters) &&

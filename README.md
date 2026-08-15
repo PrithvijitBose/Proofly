@@ -18,11 +18,11 @@
 
 ---
 
-## The problem
+## The Problem (and how we are solving it)
 
 | 📄 Traditional Resumes & Portfolios | ⚡ Proofly Connected Identity |
 | :--- | :--- |
-| **Static & Stale**: Frozen in time as PDF bullet points. | **Living & Dynamic**: Automatically syncs with verified GitHub activity. |
+| **Static & Stale**: PDF bullet points. | **Living & Dynamic**: Automatically syncs with verified GitHub activity. |
 | **Unverifiable Claims**: Anyone can list buzzwords. | **Evidence-Grounded**: Every milestone links directly to real commits & PRs. |
 | **Scattered History**: Work is fragmented across repos. | **Synthesized Story**: Chronological, AI-crafted career milestones with tone presets. |
 | **Black-Box Architecture**: Recruiters can't gauge depth. | **Deep Inspection**: Star metrics, LOC impact, and architectural complexity graphs. |

@@ -1,157 +1,195 @@
-# Proofly - Connected Professional Identity Platform
+<div align="center">
 
+# ⚡ Proofly
 
-https://github.com/user-attachments/assets/7827de70-dab6-4ca2-908c-13df05c2a654
+**Your Code is Your Resume. Grounded in Evidence, Powered by AI.**
 
+*Transform raw GitHub activity, merged pull requests, and system architectures into a living, verified career narrative.*
 
-Proofly complements traditional resumes with a connected professional identity, linking technical profiles, open-source work, and project accomplishments into a single, shareable profile.
+[![Next.js 15](https://img.shields.io/badge/Next.js-15.1-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Python_3.11+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Mistral AI](https://img.shields.io/badge/Mistral_AI-2506-FD6F00?style=for-the-badge&logo=mistral&logoColor=white)](https://mistral.ai/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
-## Project Structure
+[🌐 **Live Demo**](https://proofly-omega.vercel.app) 
 
-This workspace is cleanly split into frontend and backend applications:
-
-```text
-Proofly/
-├── backend/            # FastAPI (Python 3.11+) backend service
-│   ├── api/index.py    # Vercel Serverless Function entrypoint
-│   ├── app/            # FastAPI source code (routes, schemas, config)
-│   ├── vercel.json     # Vercel backend rewrite rules
-│   ├── .env.example    # Backend environment configuration template
-│   └── requirements.txt # Python dependencies
-└── frontend/           # Next.js 15 (TypeScript + Tailwind CSS) client app
-    ├── src/            # Next.js App Router source & API client
-    ├── vercel.json     # Vercel frontend project configuration
-    ├── .env.example    # Frontend environment configuration template
-    └── package.json    # Node dependencies
-```
+</div>
 
 ---
 
-## Quick Start (Local Development)
+## The problem
 
-### 1. Run Backend Service
+| 📄 Traditional Resumes & Portfolios | ⚡ Proofly Connected Identity |
+| :--- | :--- |
+| **Static & Stale**: Frozen in time as PDF bullet points. | **Living & Dynamic**: Automatically syncs with verified GitHub activity. |
+| **Unverifiable Claims**: Anyone can list buzzwords. | **Evidence-Grounded**: Every milestone links directly to real commits & PRs. |
+| **Scattered History**: Work is fragmented across repos. | **Synthesized Story**: Chronological, AI-crafted career milestones with tone presets. |
+| **Black-Box Architecture**: Recruiters can't gauge depth. | **Deep Inspection**: Star metrics, LOC impact, and architectural complexity graphs. |
+
+> *"Software engineers build remarkable systems, yet the hiring industry still evaluates them on 1-page PDFs. Proofly bridges the gap between what you actually built and how your career is told."*
+
+---
+
+## What Proofly is
+
+https://github.com/user-attachments/assets/a37c33ec-1eec-48b4-ab73-567efc22150e
+
+Proofly is an open-source platform that analyzes your curated software projects and automatically synthesizes a **chronological, evidence-backed career narrative**.
+
+
+### ✨ Core Pillars
+
+*  **Evidence Grounding**: Every accomplishment claim is backed by immutable Git commit hashes, PR references, or repository metrics.
+*  **7 Dynamic Tone Presets**: Switch instantly between *Technical Lead*, *Concise*, *Storytelling*, *Recruiter-Friendly*, *Professional*, *Personal*, or *Casual*.
+*  **In-Place Story Studio**: Full creative control to edit chapter titles, modify impact claims, or re-order milestones with instant local persistence.
+*  **Zero-Hallucination Guardrails**: Prompts strictly reject speculative claims; an automatic rule-based offline fallback kicks in if upstream AI is rate-limited.
+*  **@Knowledge Bot**: An embedded engineering context agent that explains codebase architecture and onboarding flows in GitHub PRs and Issues.
+
+
+
+
+---
+
+## What exists today
+
+### 🔐 1. Multi-Tier Authentication Architecture
+
+Proofly is engineered to eliminate onboarding friction for every type of user:
+
+```
+                      ┌─────────────────────────────────────────────────────────┐
+                      │              CHOOSE YOUR ACCESS MODEL                   │
+                      └────────────────────────────┬────────────────────────────┘
+                                                   │
+         ┌─────────────────────────────────┼─────────────────────────────────┐
+         ▼                                 ▼                                 ▼
+┌───────────────────┐             ┌───────────────────┐             ┌───────────────────┐
+│ 🟢 END USERS      │             │ 🟡 CONTRIBUTORS   │             │ 🔵 BUSINESS/SELF  │
+│ 1-Click OAuth     │             │ PAT Fast-Track    │             │ Dedicated Hosting │
+│ Zero-Config Login │             │ No OAuth App Req. │             │ Custom Domain/App │
+└───────────────────┘             └───────────────────┘             └───────────────────┘
+```
+
+| Tier | Who It's For | Setup Required | Security Model |
+| :--- | :--- | :--- | :--- |
+| 🟢 **1-Click OAuth** | Visitors on hosted web app | **Zero setup** (Click and authorize) | `HttpOnly` Auth.js encrypted JWT cookie |
+| 🟡 **PAT Fast-Track** | Open-source contributors & testers | Paste GitHub Token (`ghp_...`) | Secure 30-day `proofly_pat_token` cookie |
+| 🔵 **Self-Hosted** | Teams, enterprises & custom hosts | Register GitHub OAuth App | Full custom environment isolation |
+
+<details>
+<summary><b>🛠️ Click here for Business & Self-Hosting Configuration Details</b></summary>
+
+1. **Register a GitHub OAuth App**:
+   * Set Authorization Callback URL: `https://<your-domain>/api/auth/callback/github`
+2. **Configure Frontend Environment Variables**:
+   ```env
+   GITHUB_ID=your_github_client_id
+   GITHUB_SECRET=your_github_client_secret
+   AUTH_SECRET=generate_a_random_32_char_secret
+   AUTH_TRUST_HOST=true
+   NEXT_PUBLIC_API_BASE_URL=https://<your-backend-domain>
+   ```
+3. **Deploy Backend**: Deploy `/backend` (FastAPI) to Railway, Render, or Vercel with `FRONTEND_URL` configured for CORS.
+</details>
+
+---
+
+###  2. Intelligent Curation & AI Story Engine
+
+* **Smart Repo Extraction**: Automatically pulls language distributions, commit frequencies, stars, and PR contributions.
+* **Mistral AI Synthesis**: Transforms complex engineering work into crisp chronological milestones with structured takeaways.
+* **Deterministic Fallback Engine**: If Mistral AI experiences rate limits (`429`), Proofly's offline heuristic engine immediately generates a clean, rule-grounded timeline.
+
+---
+
+###  3. Interactive Narrative Studio & Evidence Graph
+
+* **Live In-Place Editing**: Edit chapters, re-word impact statements, and tailor claims to your exact persona.
+* **Verifiable Evidence Drawer**: Deep-link directly into immutable GitHub source files, merged PRs, and commit diffs.
+* **Local Persistence**: Save your approved identity narrative so it remains your default public representation.
+
+---
+
+###  4. `@Knowledge` Contributor Onboarding Bot
+
+* Triggered automatically via `@Knowledge` or `@knowledge` comments on GitHub Issues & PRs.
+* Investigates the codebase to construct mental models, highlight entry points, and explain system relationships rather than giving generic advice.
+
+---
+
+## How to contribute
+
+Whether you are fixing a typo, adding a new tone preset, or optimizing our LLM prompts—contributions are warmly welcomed!
+
+### ⚡ Quick Start in 3 Steps
+
+#### 1. Clone the Repository
+```bash
+git clone https://github.com/PrithvijitBose/Proofly.git
+cd Proofly
+```
+
+#### 2. Start the Backend Service (FastAPI)
 ```bash
 cd backend
 python -m venv .venv
 
-# Activate environment:
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # macOS / Linux
+# Windows
+.venv\Scripts\activate
+# macOS / Linux: source .venv/bin/activate
 
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
-- **Backend Health API**: `http://localhost:8000/api/v1/health`
-- **Swagger Documentation**: `http://localhost:8000/docs`
+> API Health: `http://localhost:8000/api/v1/health` • Swagger: `http://localhost:8000/docs`
 
-### 2. Run Frontend Application
+#### 3. Start the Frontend Client (Next.js 15)
 ```bash
 cd frontend
 npm install
 npm run dev
-
-# Run automated unit & component tests:
-npm test
 ```
-- **Frontend Web App**: `http://localhost:3000`
-
-### 3. Authentication Models & Deployment Guide
-
-Proofly supports **three distinct authentication models** tailored for general end-users, open-source contributors, and self-hosting organizations:
-
-#### 🟢 Option A: 1-Click OAuth (For End-Users)
-* **Who it is for**: General visitors using your live hosted web application (`proofly-omega.vercel.app`).
-* **User Experience**: Visitors simply click **"AUTHENTICATE GITHUB"** and authorize Proofly.
-* **Setup Required from End-Users**: **ZERO**. End-users do not create OAuth Apps or manage environment variables.
-* **Security**: Access tokens are held in an encrypted Auth.js JWT session cookie (`HttpOnly`) and read strictly server-side.
-
-#### 🟡 Option B: Personal Access Token / PAT Input (For Open-Source Contributors)
-* **Who it is for**: Open-source contributors cloning Proofly to test, develop, or submit PRs locally **without creating a GitHub OAuth App**.
-* **Why this exists**: Contributors don't need to register an OAuth App just to run `npm run dev`. They can sign in immediately using a Personal Access Token.
-* **How Contributors Get a PAT**:
-  1. Go to GitHub -> **Settings** -> **Developer Settings** -> **Personal Access Tokens**.
-  2. Click **Generate new token (classic)** or **Fine-grained token**.
-  3. Grant required scopes:
-     - **Classic PAT**: `read:user` and `repo` (or `public_repo` for public repositories only).
-     - **Fine-Grained PAT**: **Repository permissions** `Metadata: Read-only`.
-  4. Copy the generated token starting with `ghp_...` or `github_pat_...`.
-* **How Contributors Use It**:
-  - Open `http://localhost:3000`, click **"Use PAT"**, paste the token, and click **Save**.
-  - Token is securely saved in a persistent 30-day HTTP-only cookie (`proofly_pat_token`).
-
-#### 🔵 Option C: Self-Hosting & Custom Deployments (For Businesses & Self-Hosters)
-* **Who it is for**: Companies, teams, or independent developers deploying their own custom/private instance of Proofly (e.g., on Vercel, AWS, or Railway).
-* **Step-by-Step Setup**:
-  1. **Register a GitHub OAuth App**:
-     - Go to GitHub -> **Developer Settings** -> **OAuth Apps** -> **New OAuth App**.
-     - **Homepage URL**: `https://<your-custom-frontend-domain>`
-     - **Authorization callback URL**: `https://<your-custom-frontend-domain>/api/auth/callback/github`
-  2. **Deploy `/backend` (Python FastAPI)**:
-     - Deploy the `backend/` directory to Vercel, Railway, or Render.
-     - Note your backend deployment URL (e.g. `https://proofly-api.railway.app`).
-  3. **Deploy `/frontend` (Next.js)**:
-     - Deploy the `frontend/` directory to Vercel or a Node.js server.
-     - Set the following environment variables in your frontend host environment:
-       ```env
-       # OAuth Credentials (from step 1)
-       GITHUB_ID=your_github_client_id
-       GITHUB_SECRET=your_github_client_secret
-
-       # NextAuth Security
-       AUTH_SECRET=generate_a_random_32_char_secret
-       AUTH_TRUST_HOST=true
-
-       # Backend API Link
-       NEXT_PUBLIC_API_BASE_URL=https://<your-backend-domain>
-       ```
-
-Notes:
-- **Cookies & Security**: Authentication uses two HTTP-only cookies stored in the browser and sent with server requests:
-  - **Auth.js Session Cookie** (`authjs.session-token` / `__Secure-authjs.session-token`): Holds the encrypted OAuth JWT.
-  - **PAT Cookie** (`proofly_pat_token`): Holds custom Personal Access Tokens for PAT sign-ins.
-  - Both cookies use `HttpOnly` to prevent client-side JavaScript access (`document.cookie`). Access tokens are read server-side and are never serialized into the client-visible session object.
-- The journey story is generated deterministically from the GitHub REST API (no third-party AI call required).
+> Web Application: `http://localhost:3000`
 
 ---
 
-## Vercel Deployment Guide (Two Vercel Projects)
-
-To ensure high performance, isolated logs, and zero runtime conflicts between Node.js and Python, deploy as **2 separate Vercel projects** linked to the same Git repository.
-
-```
-       +----------------------------+
-       |   Vercel Project 2         |
-       |   (Frontend - Next.js)     |
-       |   Root: /frontend          |
-       +--------------+-------------+
-                      |
-           NEXT_PUBLIC_API_BASE_URL
-                      |
-                      v
-       +----------------------------+
-       |   Vercel Project 1         |
-       |   (Backend - FastAPI)      |
-       |   Root: /backend           |
-       +----------------------------+
+### 🧪 Running Tests
+```bash
+cd frontend
+npm test
 ```
 
-### Step 1: Deploy Backend (`/backend`)
-1. In [Vercel Dashboard](https://vercel.com/dashboard), click **Add New Project** and import this repository.
-2. Under **Root Directory**, click **Edit** and select **`backend`**.
-3. Keep Framework Preset as **Other**.
-4. Set Environment Variable:
-   - `FRONTEND_URL` = `https://<your-frontend-domain>.vercel.app` (Supports multiple comma-separated URLs for preview/production domains).
-5. Click **Deploy**. Note your deployed backend URL (e.g. `https://proofly-backend.vercel.app`).
+---
 
-### Step 2: Deploy Frontend (`/frontend`)
-1. Click **Add New Project** again and import this repository.
-2. Under **Root Directory**, click **Edit** and select **`frontend`**.
-3. Ensure Framework Preset is **Next.js**.
-4. Set Environment Variable:
-   - `NEXT_PUBLIC_API_BASE_URL` = `https://proofly-backend.vercel.app` (URL from Step 1).
-5. Click **Deploy**. Your app is now live!
+### 🌿 Contribution Workflow
+1. Create a feature branch: `git checkout -b feature/awesome-feature`
+2. Commit with conventional commit messages: `git commit -m "feat(journey): add markdown export button"`
+3. Verify test suite passes: `npm test`
+4. Open a Pull Request on GitHub.
 
-### How Backend & Frontend Connect Dynamic Updates:
-- **API Requests**: The frontend uses `NEXT_PUBLIC_API_BASE_URL` configured in `src/config/env.ts` to direct all client-side and server-side requests to the backend service.
-- **CORS Handling**: Backend's `app/config.py` automatically parses `FRONTEND_URL` (supporting comma-separated values for local development, production domains, and preview deployments).
-- **Backend Changes**: When a developer adds new FastAPI routes, endpoints, or settings in `backend/app/`, Vercel automatically deploys them via serverless functions. Frontend developers simply reference `NEXT_PUBLIC_API_BASE_URL` without code refactoring.
+---
+
+
+## Community / Discord
+
+Connect with fellow contributors, suggest features, and get live help:
+
+<div align="center">
+
+[![Discord](https://img.shields.io/badge/Discord-Join_Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/XkvEYcEba)
+
+
+</div>
+
+---
+
+## License
+
+Proofly is open-source software licensed under the **[MIT License](LICENSE)**.
+
+```text
+Copyright (c) 2026 Proofly Contributors
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files...
+```
+*(See full license text in [LICENSE](LICENSE))*

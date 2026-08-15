@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { GitHubRepo, GitHubUser } from "@/lib/github/client";
 import {
@@ -12,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ShareProfileModal } from "@/components/profile/share-profile-modal";
 import {
   Star,
   GitFork,
@@ -28,6 +30,7 @@ import {
   MessageSquare,
   BookmarkCheck,
   RotateCcw,
+  QrCode,
 } from "lucide-react";
 
 interface ProjectCurationProps {
@@ -41,6 +44,7 @@ export function ProjectCuration({ availableRepos, user }: ProjectCurationProps) 
   const [activeTab, setActiveTab] = useState<"highlights" | "all">("highlights");
   const [mounted, setMounted] = useState<boolean>(false);
   const [hydratedUser, setHydratedUser] = useState<string | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     setMounted(true);
@@ -127,6 +131,14 @@ export function ProjectCuration({ availableRepos, user }: ProjectCurationProps) 
 
   return (
     <div className="space-y-8">
+      {/* Share Profile & QR Code Modal */}
+      <ShareProfileModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        username={user.login}
+        name={user.name}
+      />
+
       {/* Top Header Summary */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-proof-border pb-6">
         <div>
@@ -143,11 +155,34 @@ export function ProjectCuration({ availableRepos, user }: ProjectCurationProps) 
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
           <Badge variant="amber" className="px-3 py-1 text-xs gap-1.5 font-mono">
             <Layers className="h-3.5 w-3.5" />
             <span>{curatedProjects.length} HIGHLIGHTED</span>
           </Badge>
+
+          {user?.login && (
+            <>
+              <Button
+                size="sm"
+                onClick={() => setShareModalOpen(true)}
+                className="text-xs bg-proof-amber text-black hover:bg-proof-amber/90 font-bold font-mono gap-1"
+              >
+                <QrCode className="h-3.5 w-3.5" />
+                Share QR
+              </Button>
+              <Link href={`/u/${encodeURIComponent(user.login)}`}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs border-proof-border hover:border-proof-cyan/50 font-mono text-slate-300 gap-1"
+                >
+                  <span>Public URL</span>
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              </Link>
+            </>
+          )}
 
           {curatedProjects.length > 0 && (
             <Button

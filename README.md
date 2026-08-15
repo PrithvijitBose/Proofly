@@ -46,12 +46,20 @@ Proofly is an open-source platform that analyzes your curated software projects 
 *  **Zero-Hallucination Guardrails**: Prompts strictly reject speculative claims; an automatic rule-based offline fallback kicks in if upstream AI is rate-limited.
 *  **@Knowledge Bot**: An embedded engineering context agent that explains codebase architecture and onboarding flows in GitHub PRs and Issues.
 
+--- 
+🚧 Current Stage
 
+Proofly is currently in early development.
 
+The first phase is focused on building the GitHub-powered identity and evidence layer. The core UI and foundation are already in place, and we're actively completing the GitHub experience.
+
+The next stages will expand Proofly beyond GitHub by connecting platforms such as LeetCode and LinkedIn into the same professional identity.
+
+We're deliberately building this in the open. Major product and technical decisions are still being explored, and contributors can influence the direction of the product.
 
 ---
 
-## What exists today
+## What is Planned?
 
 ### 🔐 1. Multi-Tier Authentication Architecture
 

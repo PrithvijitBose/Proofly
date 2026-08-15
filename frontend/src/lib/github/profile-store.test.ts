@@ -1,10 +1,13 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   constructPublicProfile,
   loadLocalPublicProfile,
   saveLocalPublicProfile,
   getPublicProfileStorageKey,
+  isValidPublicProfile,
+  publishPublicProfile,
 } from "./profile-store";
+import { resolveTrustedOrigin } from "./public-profile-service";
 import type { GitHubUser } from "./client";
 import type { GuardedNarrative } from "./guardrails";
 import type { CuratedProject } from "./curation";
@@ -63,6 +66,7 @@ const mockCuratedProjects: CuratedProject[] = [
 describe("Public Profile Store", () => {
   beforeEach(() => {
     localStorage.clear();
+    vi.restoreAllMocks();
   });
 
   it("constructs a complete PublicProfile object with canonical URL", () => {
@@ -113,5 +117,83 @@ describe("Public Profile Store", () => {
       "proofly_public_profile_user.name_123"
     );
     expect(getPublicProfileStorageKey("")).toBe("proofly_public_profile_default");
+  });
+
+  it("validates complete PublicProfile payload structure using isValidPublicProfile", () => {
+    const validProfile = constructPublicProfile(
+      mockUser,
+      mockNarrative,
+      mockCuratedProjects,
+      [],
+      []
+    );
+
+    expect(isValidPublicProfile(validProfile)).toBe(true);
+    expect(isValidPublicProfile(null)).toBe(false);
+    expect(isValidPublicProfile({})).toBe(false);
+    expect(isValidPublicProfile({ username: "test" })).toBe(false);
+    expect(
+      isValidPublicProfile({
+        username: "test",
+        avatarUrl: "http://example.com/avatar.png",
+        narrative: null,
+      })
+    ).toBe(false);
+  });
+
+  it("publishPublicProfile returns success: true on successful server sync", async () => {
+    const validProfile = constructPublicProfile(
+      mockUser,
+      mockNarrative,
+      mockCuratedProjects,
+      [],
+      []
+    );
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: "ok" }),
+    } as Response);
+
+    const result = await publishPublicProfile(validProfile);
+    expect(result.success).toBe(true);
+    expect(loadLocalPublicProfile("testdev")).not.toBeNull();
+  });
+
+  it("publishPublicProfile returns success: false with error on server rejection", async () => {
+    const validProfile = constructPublicProfile(
+      mockUser,
+      mockNarrative,
+      mockCuratedProjects,
+      [],
+      []
+    );
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ message: "Unauthorized actor" }),
+    } as Response);
+
+    const result = await publishPublicProfile(validProfile);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Unauthorized actor");
+  });
+
+  it("resolveTrustedOrigin validates allowed domains and rejects attacker-supplied origins", () => {
+    expect(resolveTrustedOrigin("https://proofly.dev")).toBe("https://proofly.dev");
+    expect(resolveTrustedOrigin("https://proofly-omega.vercel.app")).toBe(
+      "https://proofly-omega.vercel.app"
+    );
+    expect(resolveTrustedOrigin("http://localhost:3000")).toBe("http://localhost:3000");
+    expect(resolveTrustedOrigin("http://192.168.1.50:3000")).toBe("http://192.168.1.50:3000");
+
+    // Rejects untrusted domain and falls back to default
+    expect(resolveTrustedOrigin("https://evil-phishing-site.com")).toBe(
+      "https://proofly-omega.vercel.app"
+    );
+    expect(resolveTrustedOrigin("not-a-valid-url")).toBe(
+      "https://proofly-omega.vercel.app"
+    );
   });
 });

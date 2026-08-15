@@ -67,7 +67,7 @@ describe("PublicProfileView Component", () => {
     expect(screen.getByText("Building cool open source things")).toBeDefined();
   });
 
-  it("renders verified narrative chapter and claims", () => {
+  it("renders verified narrative chapter and claims with fallback evidence id", () => {
     render(<PublicProfileView profile={mockProfile} />);
 
     expect(screen.getByText("The Octoverse Genesis")).toBeDefined();
@@ -75,6 +75,31 @@ describe("PublicProfileView Component", () => {
     expect(
       screen.getByText("Engineered scalable git hosting architecture.")
     ).toBeDefined();
+    expect(screen.getByText("commit:octocat/Hello-World:7fd1a60")).toBeDefined();
+  });
+
+  it("renders resolved evidence record details when available in profile.evidence", () => {
+    const profileWithEvidence: PublicProfile = {
+      ...mockProfile,
+      evidence: [
+        {
+          id: "commit:octocat/Hello-World:7fd1a60",
+          source: "commit",
+          repoFullName: "octocat/Hello-World",
+          url: "https://github.com/octocat/Hello-World/commit/7fd1a60",
+          title: "Initial commit for the foundation",
+          detail: null,
+          date: "2021-01-01T00:00:00Z",
+          meta: {},
+          fetchedAt: "2026-08-15T12:00:00Z",
+        },
+      ],
+    };
+
+    render(<PublicProfileView profile={profileWithEvidence} />);
+
+    expect(screen.getByText("commit")).toBeDefined();
+    expect(screen.getByText("Initial commit for the foundation")).toBeDefined();
     expect(screen.getByText("commit:octocat/Hello-World:7fd1a60")).toBeDefined();
   });
 

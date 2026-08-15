@@ -2,7 +2,8 @@ import sqlite3
 import json
 import os
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Header, HTTPException, status
 from app.schemas.profile import PublicProfileSchema, PublicProfileResponse
 
 router = APIRouter()
@@ -61,15 +62,45 @@ def get_public_profile(username: str) -> PublicProfileResponse:
     status_code=status.HTTP_201_CREATED,
     summary="Publish or update public developer profile",
 )
-def publish_public_profile(username: str, profile: PublicProfileSchema) -> PublicProfileResponse:
+def publish_public_profile(
+    username: str,
+    profile: PublicProfileSchema,
+    x_actor_username: Optional[str] = Header(None, alias="X-Actor-Username"),
+) -> PublicProfileResponse:
     """
     Publish or update a developer's approved profile into shared durable storage.
-    Persists the profile to disk before returning a successful response.
+    Validates that actor identity and profile.username both match the normalized path username,
+    and sets trusted server-side approval before saving.
     """
-    key = username.strip().lower()
+    normalized_path_user = username.strip().lower()
+    normalized_payload_user = profile.username.strip().lower()
+
+    # 1. Validate payload username matches path username
+    if normalized_payload_user != normalized_path_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Profile username '{profile.username}' does not match path username '{username}'.",
+        )
+
+    # 2. Validate actor ownership if actor header is supplied
+    if x_actor_username is not None:
+        normalized_actor = x_actor_username.strip().lower()
+        if normalized_actor != normalized_path_user:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Actor '{x_actor_username}' is not authorized to modify profile for '{username}'.",
+            )
+
+    # 3. Server-enforced approval state
+    validated_profile = profile.model_copy(
+        update={
+            "isApproved": True,
+        }
+    )
+
     conn = _get_db()
     try:
-        data_json = profile.model_dump_json()
+        data_json = validated_profile.model_dump_json()
         with conn:
             conn.execute(
                 """
@@ -79,9 +110,9 @@ def publish_public_profile(username: str, profile: PublicProfileSchema) -> Publi
                     data = excluded.data,
                     updated_at = CURRENT_TIMESTAMP
                 """,
-                (key, data_json),
+                (normalized_path_user, data_json),
             )
     finally:
         conn.close()
 
-    return PublicProfileResponse(status="ok", profile=profile)
+    return PublicProfileResponse(status="ok", profile=validated_profile)

@@ -48,6 +48,22 @@ export interface PublicProfile {
   canonicalUrl: string;
 }
 
+export function isValidPublicProfile(obj: unknown): obj is PublicProfile {
+  if (!obj || typeof obj !== "object") return false;
+  const p = obj as Record<string, unknown>;
+  return (
+    typeof p.username === "string" &&
+    p.username.trim().length > 0 &&
+    typeof p.avatarUrl === "string" &&
+    typeof p.narrative === "object" &&
+    p.narrative !== null &&
+    Array.isArray((p.narrative as Record<string, unknown>).chapters) &&
+    Array.isArray(p.curatedProjects) &&
+    Array.isArray(p.evidence) &&
+    Array.isArray(p.patterns)
+  );
+}
+
 const STORAGE_PREFIX = "proofly_public_profile_";
 
 export function getPublicProfileStorageKey(username: string): string {
@@ -134,10 +150,6 @@ export function constructPublicProfile(
  * Publishes/syncs the public profile to both local storage and the server API.
  */
 export async function publishPublicProfile(profile: PublicProfile): Promise<{ success: boolean; error?: string }> {
-  // 1. Save locally
-  saveLocalPublicProfile(profile);
-
-  // 2. Sync to server API
   try {
     const res = await fetch(`/api/profile/${encodeURIComponent(profile.username)}`, {
       method: "POST",
@@ -148,15 +160,24 @@ export async function publishPublicProfile(profile: PublicProfile): Promise<{ su
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       return {
-        success: true, // Local succeeded
+        success: false,
         error: data.message || `Server sync failed with status ${res.status}`,
+      };
+    }
+
+    // Save locally on successful sync and verify local storage write
+    const localOk = saveLocalPublicProfile(profile);
+    if (!localOk && typeof window !== "undefined") {
+      return {
+        success: false,
+        error: "Failed to persist profile to browser local storage.",
       };
     }
 
     return { success: true };
   } catch (err) {
     return {
-      success: true, // Local succeeded
+      success: false,
       error: err instanceof Error ? err.message : "Network error during server sync",
     };
   }

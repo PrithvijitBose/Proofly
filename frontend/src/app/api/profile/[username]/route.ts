@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PublicProfile } from "@/lib/github/profile-store";
+import { PublicProfile, isValidPublicProfile } from "@/lib/github/profile-store";
 import {
   resolvePublicProfile,
   setCachedProfile,
 } from "@/lib/github/public-profile-service";
 import { getApiUrl, DEFAULT_PRODUCTION_APP_URL } from "@/config/env";
+import { getAuthenticatedSessionOrPat } from "@/lib/auth/github-token";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,8 @@ export async function GET(
 /**
  * POST /api/profile/[username]
  *
- * Saves/updates a published profile in server memory and forwards to backend.
+ * Saves/updates a published profile in durable storage and server cache.
+ * Requires an authenticated user whose normalized identity matches the route username.
  */
 export async function POST(
   request: NextRequest,
@@ -50,30 +52,107 @@ export async function POST(
   const key = username.trim().toLowerCase();
 
   try {
-    const profile = (await request.json()) as PublicProfile;
-    if (!profile || !profile.username || !profile.narrative) {
+    // 1. Require authenticated session or PAT
+    const auth = await getAuthenticatedSessionOrPat();
+    if (auth.status !== "authenticated") {
       return NextResponse.json(
-        { error: "invalid_body", message: "Invalid profile payload." },
+        {
+          error: "unauthorized",
+          message: "Authentication required to publish or update a developer profile.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const normalizedActor = auth.login.trim().toLowerCase();
+    if (normalizedActor !== key) {
+      return NextResponse.json(
+        {
+          error: "forbidden",
+          message: `Authenticated user '@${auth.login}' is not authorized to modify profile for '@${username}'.`,
+        },
+        { status: 403 }
+      );
+    }
+
+    // 2. Parse and validate complete PublicProfile payload
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "invalid_body", message: "Malformed JSON payload." },
         { status: 400 }
       );
     }
 
-    // Save in server cache
-    setCachedProfile(key, profile);
-
-    // Forward to backend if available
-    try {
-      const backendUrl = getApiUrl(`/api/v1/profiles/${encodeURIComponent(key)}`);
-      await fetch(backendUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
-      });
-    } catch {
-      // Backend not running
+    if (!isValidPublicProfile(rawBody)) {
+      return NextResponse.json(
+        {
+          error: "invalid_body",
+          message: "Invalid or incomplete PublicProfile payload structure.",
+        },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({ status: "ok", profile });
+    const profile = rawBody as PublicProfile;
+    const payloadUser = profile.username.trim().toLowerCase();
+    if (payloadUser !== key) {
+      return NextResponse.json(
+        {
+          error: "mismatched_username",
+          message: `Payload username '${profile.username}' does not match route username '${username}'.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 3. Trusted server-side approval enforcement
+    const approvedProfile: PublicProfile = {
+      ...profile,
+      isApproved: true,
+    };
+
+    // 4. Persist to durable backend service first
+    const backendUrl = getApiUrl(`/api/v1/profiles/${encodeURIComponent(key)}`);
+    try {
+      const backendRes = await fetch(backendUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Actor-Username": auth.login,
+        },
+        body: JSON.stringify(approvedProfile),
+      });
+
+      if (!backendRes.ok) {
+        const errorData = await backendRes.json().catch(() => ({}));
+        return NextResponse.json(
+          {
+            error: "backend_error",
+            message:
+              errorData.detail ||
+              errorData.message ||
+              `Backend durable persistence failed with status ${backendRes.status}.`,
+          },
+          { status: backendRes.status >= 400 && backendRes.status < 600 ? backendRes.status : 502 }
+        );
+      }
+
+      // 5. Durable persistence succeeded -> commit to in-memory cache
+      setCachedProfile(key, approvedProfile);
+
+      return NextResponse.json({ status: "ok", profile: approvedProfile });
+    } catch {
+      return NextResponse.json(
+        {
+          error: "backend_unavailable",
+          message: "Durable profile backend service is currently unreachable.",
+        },
+        { status: 503 }
+      );
+    }
   } catch (err) {
     return NextResponse.json(
       {

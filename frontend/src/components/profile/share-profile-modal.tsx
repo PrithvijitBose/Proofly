@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   X,
   QrCode,
@@ -37,48 +37,137 @@ export function ShareProfileModal({
 }: ShareProfileModalProps) {
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [activePreset, setActivePreset] = useState<DomainPreset>("wifi");
-  const [customDomainInput, setCustomDomainInput] = useState<string>("");
-  const [localIp, setLocalIp] = useState<string>("192.168.31.221");
+  const [activePreset, setActivePreset] = useState<DomainPreset>(
+    customUrl ? "custom" : "production"
+  );
+  const [customDomainInput, setCustomDomainInput] = useState<string>(
+    customUrl ? customUrl.replace(/\/u\/[^/]+$/, "") : ""
+  );
+  const [configuredLanIp, setConfiguredLanIp] = useState<string | null>(null);
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedElement = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
     if (typeof window !== "undefined") {
       const hostname = window.location.hostname;
-      if (hostname !== "localhost" && hostname !== "127.0.0.1") {
-        setLocalIp(hostname);
+      if (
+        hostname !== "localhost" &&
+        hostname !== "127.0.0.1" &&
+        /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)
+      ) {
+        setConfiguredLanIp(hostname);
       }
     }
   }, []);
 
+  // Focus trap, Escape key handling, and focus restoration
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Save previous active element before opening
+    if (typeof document !== "undefined") {
+      previouslyFocusedElement.current = document.activeElement as HTMLElement | null;
+    }
+
+    // Move initial focus into modal
+    const timer = setTimeout(() => {
+      if (dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length > 0) {
+          focusable[0].focus();
+        } else {
+          dialogRef.current.focus();
+        }
+      }
+    }, 50);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((el) => !el.hasAttribute("disabled"));
+
+        if (focusable.length === 0) return;
+
+        const firstElement = focusable[0];
+        const lastElement = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement || !dialogRef.current.contains(document.activeElement)) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement || !dialogRef.current.contains(document.activeElement)) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+      if (previouslyFocusedElement.current && typeof previouslyFocusedElement.current.focus === "function") {
+        previouslyFocusedElement.current.focus();
+      }
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen || !mounted) return null;
 
-  const currentLocalOrigin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-  const port = typeof window !== "undefined" && window.location.port ? `:${window.location.port}` : ":3000";
-  const wifiNetworkOrigin = `http://${localIp}${port}`;
+  const publicServingOrigin =
+    customUrl ||
+    (typeof window !== "undefined" && window.location.origin
+      ? window.location.origin
+      : DEFAULT_PRODUCTION_APP_URL);
 
-  // Compute active base origin safely
-  let activeBaseOrigin = wifiNetworkOrigin;
+  const port =
+    typeof window !== "undefined" && window.location.port
+      ? `:${window.location.port}`
+      : ":3000";
+  const wifiNetworkOrigin = configuredLanIp ? `http://${configuredLanIp}${port}` : null;
+
+  // Compute active base origin safely — defaults to public serving destination
+  let activeBaseOrigin = DEFAULT_PRODUCTION_APP_URL;
 
   if (activePreset === "production") {
     activeBaseOrigin = DEFAULT_PRODUCTION_APP_URL;
   } else if (activePreset === "wifi") {
-    activeBaseOrigin = wifiNetworkOrigin;
+    activeBaseOrigin = wifiNetworkOrigin || (typeof window !== "undefined" ? window.location.origin : DEFAULT_PRODUCTION_APP_URL);
   } else if (activePreset === "localhost") {
-    activeBaseOrigin = currentLocalOrigin;
+    activeBaseOrigin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
   } else if (activePreset === "custom") {
     const raw = customDomainInput.trim();
     if (raw) {
-      // Auto-prefix protocol if missing
-      activeBaseOrigin = raw.startsWith("http://") || raw.startsWith("https://")
-        ? raw.replace(/\/+$/, "")
-        : `https://${raw.replace(/\/+$/, "")}`;
+      activeBaseOrigin =
+        raw.startsWith("http://") || raw.startsWith("https://")
+          ? raw.replace(/\/+$/, "")
+          : `https://${raw.replace(/\/+$/, "")}`;
     } else {
-      activeBaseOrigin = wifiNetworkOrigin;
+      activeBaseOrigin = publicServingOrigin;
     }
   }
 
-  const profileUrl = `${activeBaseOrigin.replace(/\/+$/, "")}/u/${encodeURIComponent(username)}`;
+  const profileUrl =
+    activePreset === "custom" && customUrl && !customDomainInput.trim()
+      ? customUrl
+      : `${activeBaseOrigin.replace(/\/+$/, "")}/u/${encodeURIComponent(username)}`;
 
   const handleCopyUrl = async () => {
     try {
@@ -106,12 +195,20 @@ export function ShareProfileModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
+        data-testid="modal-backdrop"
         className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
       {/* Dialog Modal */}
-      <div className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border border-proof-border bg-proof-dark p-6 sm:p-7 shadow-2xl transition-all no-scrollbar">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-dialog-title"
+        tabIndex={-1}
+        className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border border-proof-border bg-proof-dark p-6 sm:p-7 shadow-2xl transition-all no-scrollbar outline-none"
+      >
         {/* Glow corner */}
         <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-proof-amber/20 blur-3xl" />
 
@@ -122,13 +219,16 @@ export function ShareProfileModal({
               <QrCode className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white font-display">Share Public Identity</h2>
+              <h2 id="share-dialog-title" className="text-base font-bold text-white font-display">
+                Share Public Identity
+              </h2>
               <p className="text-[11px] text-proof-ash font-mono">Instant Universal QR Code & Shareable Link</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-proof-ash hover:bg-proof-obsidian hover:text-white transition-colors"
+            aria-label="Close share modal"
+            className="rounded-full p-2 text-proof-ash hover:bg-proof-border/50 hover:text-white transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -144,7 +244,7 @@ export function ShareProfileModal({
             </label>
 
             <div className="grid grid-cols-2 gap-2">
-              {/* Option 1: Local Wi-Fi (Recommended for local phone scan) */}
+              {/* Option 1: Local Wi-Fi (Available when on local network) */}
               <button
                 type="button"
                 onClick={() => setActivePreset("wifi")}
@@ -159,7 +259,7 @@ export function ShareProfileModal({
                   <span>Local Wi-Fi (Phone)</span>
                 </div>
                 <span className="text-[10px] text-slate-400 mt-0.5 truncate max-w-full">
-                  {localIp}:3000
+                  {configuredLanIp ? `${configuredLanIp}${port}` : "Local Network"}
                 </span>
               </button>
 
@@ -191,7 +291,7 @@ export function ShareProfileModal({
                   <button
                     onClick={() => {
                       setCustomDomainInput("");
-                      setActivePreset("wifi");
+                      setActivePreset("production");
                     }}
                     className="text-[10px] text-red-400 hover:underline font-mono"
                   >
@@ -206,98 +306,80 @@ export function ShareProfileModal({
                   setCustomDomainInput(e.target.value);
                   setActivePreset("custom");
                 }}
-                placeholder="e.g. 192.168.31.221:3000 or https://myportfolio.com"
-                className="w-full rounded-lg border border-proof-border bg-proof-dark px-3 py-1.5 text-xs text-white font-mono placeholder:text-slate-500 focus:border-proof-amber focus:outline-none"
+                placeholder="e.g. https://proofly.dev or https://myportfolio.com"
+                className="w-full rounded-xl border border-proof-border bg-proof-dark px-3 py-2 text-xs font-mono text-white placeholder:text-proof-ash/60 focus:border-proof-amber focus:outline-none"
               />
             </div>
           </div>
 
-          {/* Quick Scan Notice */}
-          <div className="flex items-center justify-center gap-2 rounded-xl border border-proof-emerald/30 bg-proof-emerald/10 px-3 py-2 text-xs text-proof-emerald">
-            <Smartphone className="h-4 w-4 shrink-0" />
-            <span>
-              {activePreset === "wifi"
-                ? "Phone & laptop must be on the same Wi-Fi network"
-                : activePreset === "production"
-                ? "Opens live cloud deployment on Vercel"
-                : "Scannable on any camera"}
-            </span>
-          </div>
-
-          {/* High-Contrast QR Code Display */}
+          {/* QR Code Canvas Card */}
           <div className="flex justify-center">
             <QRCodeDisplay
               url={profileUrl}
               username={username}
-              size={210}
+              size={220}
               showControls={true}
             />
           </div>
 
-          {/* Direct URL Box */}
-          <div className="space-y-2 text-left">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-mono font-bold uppercase tracking-wider text-proof-ash">
-                Target URL:
-              </label>
-              <a
-                href={profileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] text-proof-cyan hover:underline flex items-center gap-1 font-mono"
-              >
-                <span>Test in Browser</span>
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-
-            <div className="flex items-center gap-2 rounded-xl border border-proof-border bg-proof-obsidian p-1.5 pl-3">
+          {/* Share Actions Grid */}
+          <div className="space-y-3 pt-2">
+            <div className="flex gap-2">
               <input
                 type="text"
                 readOnly
                 value={profileUrl}
-                className="w-full bg-transparent font-mono text-xs text-slate-200 focus:outline-none select-all"
+                className="w-full rounded-xl border border-proof-border bg-proof-obsidian px-3.5 py-2.5 text-xs font-mono text-slate-300 select-all focus:outline-none"
               />
               <Button
-                size="sm"
+                variant="outline"
                 onClick={handleCopyUrl}
-                className="shrink-0 bg-proof-amber text-black hover:bg-proof-amber/90 text-xs font-semibold px-3 py-1.5 h-auto rounded-lg"
+                className="shrink-0 gap-1.5 border-proof-border bg-proof-dark hover:border-proof-amber hover:text-proof-amber"
               >
                 {copied ? (
                   <>
-                    <Check className="mr-1.5 h-3.5 w-3.5" />
-                    Copied
+                    <Check className="h-4 w-4 text-proof-emerald" />
+                    <span className="text-xs font-mono text-proof-emerald">Copied</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="mr-1.5 h-3.5 w-3.5" />
-                    Copy
+                    <Copy className="h-4 w-4" />
+                    <span className="text-xs font-mono">Copy</span>
                   </>
                 )}
               </Button>
             </div>
-          </div>
 
-          {/* Social Share Buttons */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShareTwitter}
-              className="text-xs border-proof-border hover:border-proof-amber/50 font-mono"
+            {/* Test Link Button */}
+            <a
+              href={profileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-proof-amber/40 bg-proof-amber/10 py-2.5 text-xs font-bold text-proof-amber transition-all hover:bg-proof-amber/20"
             >
-              <Share2 className="mr-1.5 h-3.5 w-3.5 text-proof-ash" />
-              Share on X
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShareLinkedIn}
-              className="text-xs border-proof-border hover:border-proof-amber/50 font-mono"
-            >
-              <ExternalLink className="mr-1.5 h-3.5 w-3.5 text-proof-ash" />
-              Share LinkedIn
-            </Button>
+              <span>Test in Browser</span>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+
+            {/* Social Share Buttons */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <Button
+                variant="outline"
+                onClick={handleShareTwitter}
+                className="w-full gap-2 border-proof-border bg-proof-obsidian text-xs font-mono text-slate-300 hover:border-proof-cyan hover:text-white"
+              >
+                <Share2 className="h-3.5 w-3.5 text-proof-cyan" />
+                Share on X
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleShareLinkedIn}
+                className="w-full gap-2 border-proof-border bg-proof-obsidian text-xs font-mono text-slate-300 hover:border-proof-cyan hover:text-white"
+              >
+                <Share2 className="h-3.5 w-3.5 text-proof-cyan" />
+                Share LinkedIn
+              </Button>
+            </div>
           </div>
         </div>
       </div>

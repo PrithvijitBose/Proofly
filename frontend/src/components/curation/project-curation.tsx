@@ -15,6 +15,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ShareProfileModal } from "@/components/profile/share-profile-modal";
 import {
+  loadLocalPublicProfile,
+  constructPublicProfile,
+  publishPublicProfile,
+} from "@/lib/github/profile-store";
+import { loadApprovedJourney } from "@/lib/github/custom-journey";
+import {
   Star,
   GitFork,
   ArrowUp,
@@ -60,8 +66,30 @@ export function ProjectCuration({ availableRepos, user }: ProjectCurationProps) 
     // Prevent save effect from executing until hydration for current user completes
     if (mounted && user?.login && hydratedUser === user.login) {
       saveCuratedProjects(user.login, curatedProjects);
+
+      // Refresh and republish public profile snapshot if an approved story or local profile exists
+      const existingLocalProfile = loadLocalPublicProfile(user.login);
+      const approvedJourney = loadApprovedJourney(user.login);
+
+      if (existingLocalProfile || approvedJourney) {
+        const baseNarrative = approvedJourney?.narrative ?? existingLocalProfile?.narrative;
+        if (baseNarrative) {
+          const updatedProfile = constructPublicProfile(
+            user,
+            baseNarrative,
+            curatedProjects,
+            existingLocalProfile?.evidence ?? [],
+            existingLocalProfile?.patterns ?? [],
+            {
+              tone: approvedJourney?.tone ?? existingLocalProfile?.tone ?? "Professional",
+              customPrompt: approvedJourney?.customPrompt ?? existingLocalProfile?.customPrompt,
+            }
+          );
+          void publishPublicProfile(updatedProfile);
+        }
+      }
     }
-  }, [curatedProjects, mounted, user?.login, hydratedUser]);
+  }, [curatedProjects, mounted, user, hydratedUser]);
 
   const curatedRepoIds = new Set(curatedProjects.map((p) => p.repoId));
 

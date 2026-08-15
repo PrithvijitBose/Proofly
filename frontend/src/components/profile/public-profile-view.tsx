@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { PublicProfile } from "@/lib/github/profile-store";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,19 @@ export function PublicProfileView({ profile, isOwner = false }: PublicProfileVie
   const displayName = profile.name || profile.username;
   const hasCuratedProjects = profile.curatedProjects && profile.curatedProjects.length > 0;
   const narrative = profile.narrative;
+
+  // Build evidence index for direct citation resolution
+  const evidenceById = useMemo(() => {
+    const map = new Map<string, (typeof profile.evidence)[0]>();
+    if (Array.isArray(profile.evidence)) {
+      for (const record of profile.evidence) {
+        if (record?.id) {
+          map.set(record.id, record);
+        }
+      }
+    }
+    return map;
+  }, [profile.evidence]);
 
   // Language aggregation across curated repos
   const languages = Array.from(
@@ -258,15 +271,42 @@ export function PublicProfileView({ profile, isOwner = false }: PublicProfileVie
                         <div>
                           <span>{claim.text}</span>
                           {claim.evidenceIds && claim.evidenceIds.length > 0 && (
-                            <div className="mt-1.5 flex flex-wrap gap-1.5">
-                              {claim.evidenceIds.map((eid) => (
-                                <span
-                                  key={eid}
-                                  className="inline-flex items-center rounded-md border border-proof-border/80 bg-proof-obsidian px-2 py-0.5 font-mono text-[10px] text-proof-cyan"
-                                >
-                                  {eid}
-                                </span>
-                              ))}
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {claim.evidenceIds.map((eid) => {
+                                const record = evidenceById.get(eid);
+                                if (record) {
+                                  return (
+                                    <a
+                                      key={eid}
+                                      href={record.url || "#"}
+                                      target={record.url ? "_blank" : undefined}
+                                      rel="noopener noreferrer"
+                                      title={`${record.source.toUpperCase()}: ${record.title || eid} (${record.repoFullName})`}
+                                      className="group/ev inline-flex items-center gap-1.5 rounded-md border border-proof-border/80 bg-proof-obsidian px-2 py-0.5 font-mono text-[10px] text-proof-cyan hover:border-proof-cyan/50 hover:bg-proof-dark transition-colors"
+                                    >
+                                      <span className="font-semibold text-proof-amber uppercase tracking-wider text-[9px]">
+                                        {record.source}
+                                      </span>
+                                      <span className="text-slate-300 group-hover/ev:text-white truncate max-w-[150px]">
+                                        {record.title || record.repoFullName}
+                                      </span>
+                                      <span className="text-proof-ash">{eid}</span>
+                                      {record.url && (
+                                        <ExternalLink className="h-2.5 w-2.5 opacity-70 group-hover/ev:opacity-100 shrink-0 text-proof-cyan" />
+                                      )}
+                                    </a>
+                                  );
+                                }
+
+                                return (
+                                  <span
+                                    key={eid}
+                                    className="inline-flex items-center rounded-md border border-proof-border/80 bg-proof-obsidian px-2 py-0.5 font-mono text-[10px] text-proof-cyan"
+                                  >
+                                    {eid}
+                                  </span>
+                                );
+                              })}
                             </div>
                           )}
                         </div>

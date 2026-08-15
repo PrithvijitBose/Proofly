@@ -40,6 +40,7 @@ export interface GuardedChapter {
 
 export interface GuardedNarrative {
   chapters: GuardedChapter[];
+  summary?: string;
   verifiedClaimCount: number;
   droppedClaimCount: number;
   dropReasons: string[];
@@ -232,7 +233,13 @@ export function verifyNarrative(
     }
   }
 
-  return { chapters, verifiedClaimCount, droppedClaimCount, dropReasons };
+  return {
+    chapters,
+    summary: narrative.summary,
+    verifiedClaimCount,
+    droppedClaimCount,
+    dropReasons,
+  };
 }
 
 function truncate(text: string, max: number): string {

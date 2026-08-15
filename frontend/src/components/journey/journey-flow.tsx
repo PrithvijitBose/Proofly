@@ -171,7 +171,7 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
     setIsRegenerating(false);
   };
 
-  const handleSaveEdited = (editedNarrative: GuardedNarrative) => {
+  const handleSaveEdited = async (editedNarrative: GuardedNarrative) => {
     const timestamp = new Date().toISOString();
     const approved: ApprovedJourney = {
       narrative: editedNarrative,
@@ -180,15 +180,6 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       tone,
       customPrompt,
     };
-    const ok = saveApprovedJourney(user.login, approved);
-    if (!ok) {
-      setMessage("Could not save your approved story to local storage. Check your browser storage settings.");
-      return;
-    }
-    setNarrative(editedNarrative);
-    setIsApproved(true);
-    setSavedAt(timestamp);
-    setIsEditing(false);
 
     // Sync to public profile store & server
     const curated = loadCuratedProjects(user.login);
@@ -200,10 +191,27 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       patterns,
       { tone, customPrompt }
     );
-    void publishPublicProfile(pubProfile);
+    const syncRes = await publishPublicProfile(pubProfile);
+    if (!syncRes.success) {
+      setMessage(`Failed to publish public profile: ${syncRes.error || "Server synchronization error"}`);
+      setStatus("error");
+      return;
+    }
+
+    const ok = saveApprovedJourney(user.login, approved);
+    if (!ok) {
+      setMessage("Could not save your approved story to local storage. Check your browser storage settings.");
+      return;
+    }
+    setMessage(null);
+    setStatus("ready");
+    setNarrative(editedNarrative);
+    setIsApproved(true);
+    setSavedAt(timestamp);
+    setIsEditing(false);
   };
 
-  const handleApproveCurrent = () => {
+  const handleApproveCurrent = async () => {
     if (!narrative) return;
     const timestamp = new Date().toISOString();
     const approved: ApprovedJourney = {
@@ -213,13 +221,6 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       tone,
       customPrompt,
     };
-    const ok = saveApprovedJourney(user.login, approved);
-    if (!ok) {
-      setMessage("Could not save your approved story to local storage. Check your browser storage settings.");
-      return;
-    }
-    setIsApproved(true);
-    setSavedAt(timestamp);
 
     // Sync to public profile store & server
     const curated = loadCuratedProjects(user.login);
@@ -231,7 +232,22 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       patterns,
       { tone, customPrompt }
     );
-    void publishPublicProfile(pubProfile);
+    const syncRes = await publishPublicProfile(pubProfile);
+    if (!syncRes.success) {
+      setMessage(`Failed to publish public profile: ${syncRes.error || "Server synchronization error"}`);
+      setStatus("error");
+      return;
+    }
+
+    const ok = saveApprovedJourney(user.login, approved);
+    if (!ok) {
+      setMessage("Could not save your approved story to local storage. Check your browser storage settings.");
+      return;
+    }
+    setMessage(null);
+    setStatus("ready");
+    setIsApproved(true);
+    setSavedAt(timestamp);
   };
 
   const handleRevertToDraft = () => {

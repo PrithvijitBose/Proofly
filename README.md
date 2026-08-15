@@ -44,7 +44,6 @@ Proofly is an open-source platform that analyzes your curated software projects 
 *  **7 Dynamic Tone Presets**: Switch instantly between *Technical Lead*, *Concise*, *Storytelling*, *Recruiter-Friendly*, *Professional*, *Personal*, or *Casual*.
 *  **In-Place Story Studio**: Full creative control to edit chapter titles, modify impact claims, or re-order milestones with instant local persistence.
 *  **Zero-Hallucination Guardrails**: Prompts strictly reject speculative claims; an automatic rule-based offline fallback kicks in if upstream AI is rate-limited.
-*  **@Knowledge Bot**: An embedded engineering context agent that explains codebase architecture and onboarding flows in GitHub PRs and Issues.
 
 --- 
 🚧 Current Stage
@@ -119,10 +118,6 @@ Proofly is engineered to eliminate onboarding friction for every type of user:
 
 ---
 
-###  4. `@Knowledge` Contributor Onboarding Bot
-
-* Triggered automatically via `@Knowledge` or `@knowledge` comments on GitHub Issues & PRs.
-* Investigates the codebase to construct mental models, highlight entry points, and explain system relationships rather than giving generic advice.
 
 ---
 

@@ -52,6 +52,14 @@ export function Navbar({ user, oauthConfigured }: NavbarProps) {
           <Link href="/journey" className="hover:text-proof-cyan transition-colors flex items-center gap-1.5 text-proof-amber font-bold">
             <Sparkles className="h-3.5 w-3.5 text-proof-amber" /> proof.journey()
           </Link>
+          {user?.login && (
+            <Link
+              href={`/u/${encodeURIComponent(user.login)}`}
+              className="hover:text-white transition-colors flex items-center gap-1.5 text-slate-300 font-bold"
+            >
+              <span className="text-proof-emerald">@</span> proof.passport()
+            </Link>
+          )}
         </nav>
 
         {/* Auth Controls (Desktop) */}
@@ -118,6 +126,15 @@ export function Navbar({ user, oauthConfigured }: NavbarProps) {
           >
             <Sparkles className="h-3.5 w-3.5 inline mr-1 text-proof-amber" /> proof.journey()
           </Link>
+          {user?.login && (
+            <Link
+              href={`/u/${encodeURIComponent(user.login)}`}
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 text-proof-emerald hover:text-white transition-colors font-bold"
+            >
+              <span className="text-proof-emerald">@</span> proof.passport()
+            </Link>
+          )}
         </div>
       )}
     </header>

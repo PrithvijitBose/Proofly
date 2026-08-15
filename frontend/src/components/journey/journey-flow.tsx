@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Loader2, RefreshCw, ShieldAlert, Sparkles, BookmarkCheck, CheckCircle, Edit3, Award, RotateCcw } from "lucide-react";
+import { Loader2, RefreshCw, ShieldAlert, Sparkles, BookmarkCheck, CheckCircle, Edit3, Award, RotateCcw, QrCode, Share2, ExternalLink } from "lucide-react";
 import type { GitHubRepo, GitHubUser } from "@/lib/github/client";
 import { buildJourneyStory, type JourneyStory } from "@/lib/github/journey";
 import type { GuardedNarrative } from "@/lib/github/guardrails";
@@ -16,6 +16,8 @@ import {
   clearApprovedJourney,
   type ApprovedJourney,
 } from "@/lib/github/custom-journey";
+import { constructPublicProfile, publishPublicProfile } from "@/lib/github/profile-store";
+import { ShareProfileModal } from "@/components/profile/share-profile-modal";
 import { Narrative } from "./narrative";
 import { EvidencePanel } from "./evidence-panel";
 import { JourneyCustomizer } from "./journey-customizer";
@@ -78,6 +80,7 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
+  const [shareModalOpen, setShareModalOpen] = useState<boolean>(false);
 
   const optionsRef = useRef({ tone, customPrompt });
   useEffect(() => {
@@ -168,7 +171,7 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
     setIsRegenerating(false);
   };
 
-  const handleSaveEdited = (editedNarrative: GuardedNarrative) => {
+  const handleSaveEdited = async (editedNarrative: GuardedNarrative) => {
     const timestamp = new Date().toISOString();
     const approved: ApprovedJourney = {
       narrative: editedNarrative,
@@ -177,18 +180,38 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       tone,
       customPrompt,
     };
+
+    // Sync to public profile store & server
+    const curated = loadCuratedProjects(user.login);
+    const pubProfile = constructPublicProfile(
+      user,
+      editedNarrative,
+      curated,
+      evidence,
+      patterns,
+      { tone, customPrompt }
+    );
+    const syncRes = await publishPublicProfile(pubProfile);
+    if (!syncRes.success) {
+      setMessage(`Failed to publish public profile: ${syncRes.error || "Server synchronization error"}`);
+      setStatus("error");
+      return;
+    }
+
     const ok = saveApprovedJourney(user.login, approved);
     if (!ok) {
       setMessage("Could not save your approved story to local storage. Check your browser storage settings.");
       return;
     }
+    setMessage(null);
+    setStatus("ready");
     setNarrative(editedNarrative);
     setIsApproved(true);
     setSavedAt(timestamp);
     setIsEditing(false);
   };
 
-  const handleApproveCurrent = () => {
+  const handleApproveCurrent = async () => {
     if (!narrative) return;
     const timestamp = new Date().toISOString();
     const approved: ApprovedJourney = {
@@ -198,11 +221,31 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
       tone,
       customPrompt,
     };
+
+    // Sync to public profile store & server
+    const curated = loadCuratedProjects(user.login);
+    const pubProfile = constructPublicProfile(
+      user,
+      narrative,
+      curated,
+      evidence,
+      patterns,
+      { tone, customPrompt }
+    );
+    const syncRes = await publishPublicProfile(pubProfile);
+    if (!syncRes.success) {
+      setMessage(`Failed to publish public profile: ${syncRes.error || "Server synchronization error"}`);
+      setStatus("error");
+      return;
+    }
+
     const ok = saveApprovedJourney(user.login, approved);
     if (!ok) {
       setMessage("Could not save your approved story to local storage. Check your browser storage settings.");
       return;
     }
+    setMessage(null);
+    setStatus("ready");
     setIsApproved(true);
     setSavedAt(timestamp);
   };
@@ -219,6 +262,14 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+      {/* Share Profile & QR Code Modal */}
+      <ShareProfileModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        username={user.login}
+        name={user.name}
+      />
+
       {/* Hero */}
       <header className="text-center">
         <div className="mx-auto mb-6 h-20 w-20 overflow-hidden rounded-full ring-2 ring-primary/40">
@@ -284,6 +335,25 @@ export function JourneyFlow({ user, deterministicStory }: JourneyFlowProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {isApproved && (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => setShareModalOpen(true)}
+                  className="text-xs font-bold bg-amber-500 text-black hover:bg-amber-400 shadow-sm gap-1.5"
+                >
+                  <QrCode className="h-3.5 w-3.5" />
+                  Share QR
+                </Button>
+                <Link href={`/u/${encodeURIComponent(user.login)}`}>
+                  <Button variant="outline" size="sm" className="text-xs gap-1">
+                    <span>View Public Page</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </Link>
+              </>
+            )}
+
             {!isApproved ? (
               <>
                 <Button

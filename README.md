@@ -1,5 +1,9 @@
 # Proofly - Connected Professional Identity Platform
 
+
+https://github.com/user-attachments/assets/7827de70-dab6-4ca2-908c-13df05c2a654
+
+
 Proofly complements traditional resumes with a connected professional identity, linking technical profiles, open-source work, and project accomplishments into a single, shareable profile.
 
 ## Project Structure

@@ -121,6 +121,10 @@ export async function POST(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          // Authoritative proof of identity: the backend re-verifies this token
+          // against GitHub, so ownership is enforced even if the backend is
+          // called directly. X-Actor-Username is now only a defense-in-depth hint.
+          Authorization: `Bearer ${auth.token}`,
           "X-Actor-Username": auth.login,
         },
         body: JSON.stringify(approvedProfile),

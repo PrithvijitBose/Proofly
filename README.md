@@ -180,7 +180,7 @@ Connect with fellow contributors, suggest features, and get live help:
 
 <div align="center">
 
-[![Discord](https://img.shields.io/badge/Discord-Join_Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/XkvEYcEba)
+[![Discord](https://img.shields.io/badge/Discord-Join_Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/S8FRQJTUU)
 
 
 </div>
